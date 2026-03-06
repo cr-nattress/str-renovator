@@ -1,0 +1,19 @@
+{
+  "name": "str-renovator-app",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "dev:api": "npm run dev -w @str-renovator/api",
+    "dev:web": "npm run dev -w @str-renovator/web",
+    "build:shared": "npm run build -w @str-renovator/shared"
+  },
+  "devDependencies": {
+    "turbo": "^2.3.0",
+    "typescript": "^5.7.0"
+  }
+}
