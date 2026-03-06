@@ -38,9 +38,10 @@ export async function enqueueRenovation(
 }
 
 export async function enqueueScrape(
+  scrapeJobId: string,
   propertyId: string,
   userId: string,
   url: string
 ): Promise<void> {
-  await scrapeQueue.add("scrape", { propertyId, userId, url });
+  await scrapeQueue.add("scrape", { scrapeJobId, propertyId, userId, url });
 }

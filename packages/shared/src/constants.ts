@@ -17,7 +17,7 @@ export const TIER_LIMITS: Record<Tier, TierLimits> = {
     analysesPerMonth: 2,
     rerunsPerPhoto: 1,
     imageQuality: "low",
-    urlScraping: false,
+    urlScraping: true,
   },
   pro: {
     properties: 5,

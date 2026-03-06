@@ -1,0 +1,5 @@
+screenshots/
+reports/
+.playwright/
+test-results/
+.env.test
