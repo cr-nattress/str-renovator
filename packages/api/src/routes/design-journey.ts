@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { supabase } from "../config/supabase.js";
+import * as storageService from "../services/storage.service.js";
 
 const router = Router();
 
@@ -45,7 +46,23 @@ router.get("/properties/:propertyId/journey", async (req, res, next) => {
       .order("priority", { ascending: true });
 
     if (error) throw error;
-    res.json(data);
+
+    // Generate signed URLs for items with images
+    const itemsWithUrls = await Promise.all(
+      (data ?? []).map(async (item: any) => {
+        let image_url: string | null = null;
+        if (item.image_storage_path) {
+          try {
+            image_url = await storageService.getSignedUrl(item.image_storage_path);
+          } catch {
+            // Signed URL generation failed — leave as null
+          }
+        }
+        return { ...item, image_url };
+      })
+    );
+
+    res.json(itemsWithUrls);
   } catch (err) {
     next(err);
   }

@@ -4,8 +4,15 @@ import type {
   DbDesignJourneyItem,
   CreateJourneyItemDto,
   UpdateJourneyItemDto,
+  ActionImageStatus,
 } from "@str-renovator/shared";
+
+export interface JourneyItemWithImage extends DbDesignJourneyItem {
+  image_url: string | null;
+}
 import { apiFetch } from "./client";
+
+const ACTIVE_STATUSES: ActionImageStatus[] = ["pending", "processing"];
 
 export function useJourneyItems(propertyId: string) {
   const { getToken } = useAuth();
@@ -13,12 +20,20 @@ export function useJourneyItems(propertyId: string) {
     queryKey: ["journey", propertyId],
     queryFn: async () => {
       const token = await getToken();
-      return apiFetch<DbDesignJourneyItem[]>(
+      return apiFetch<JourneyItemWithImage[]>(
         `/api/v1/properties/${propertyId}/journey`,
         token!,
       );
     },
     enabled: !!propertyId,
+    refetchInterval: (query) => {
+      const items = query.state.data;
+      if (!items) return false;
+      const hasActive = items.some((item) =>
+        ACTIVE_STATUSES.includes(item.image_status)
+      );
+      return hasActive ? 5000 : false;
+    },
   });
 }
 

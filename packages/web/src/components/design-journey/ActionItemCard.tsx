@@ -1,10 +1,10 @@
 import { useState } from "react";
 import type {
-  DbDesignJourneyItem,
   JourneyStatus,
   Priority,
   UpdateJourneyItemDto,
 } from "@str-renovator/shared";
+import type { JourneyItemWithImage } from "../../api/journey";
 
 const IMPACT_STYLES: Record<Priority, string> = {
   high: "bg-red-100 text-red-800",
@@ -20,7 +20,7 @@ const STATUS_OPTIONS: { value: JourneyStatus; label: string }[] = [
 ];
 
 interface Props {
-  item: DbDesignJourneyItem;
+  item: JourneyItemWithImage;
   onUpdate: (id: string, data: UpdateJourneyItemDto) => void;
   isSaving?: boolean;
 }
@@ -43,7 +43,22 @@ export function ActionItemCard({ item, onUpdate, isSaving }: Props) {
   };
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+    <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+      {item.image_status === "completed" && item.image_url && (
+        <div className="aspect-video w-full overflow-hidden">
+          <img
+            src={item.image_url}
+            alt={item.title}
+            className="w-full h-full object-cover"
+          />
+        </div>
+      )}
+      {(item.image_status === "pending" || item.image_status === "processing") && (
+        <div className="aspect-video w-full bg-gray-100 animate-pulse flex items-center justify-center">
+          <span className="text-sm text-gray-400">Generating image...</span>
+        </div>
+      )}
+      <div className="p-4">
       <div className="flex items-start gap-3">
         <span className="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-bold">
           {item.priority}
@@ -146,6 +161,7 @@ export function ActionItemCard({ item, onUpdate, isSaving }: Props) {
             </button>
           )}
         </div>
+      </div>
       </div>
     </div>
   );

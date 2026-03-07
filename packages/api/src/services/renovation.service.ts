@@ -14,6 +14,7 @@ interface RenovateInput {
   prompt: string;
   quality: ImageQuality;
   size: ImageSize;
+  rawPrompt?: boolean;
 }
 
 export async function editImage(input: RenovateInput): Promise<string> {
@@ -27,7 +28,7 @@ export async function editImage(input: RenovateInput): Promise<string> {
     const response = await openai.images.edit({
       model: "gpt-image-1",
       image: file,
-      prompt: buildImageEditPrompt(input.prompt),
+      prompt: input.rawPrompt ? input.prompt : buildImageEditPrompt(input.prompt),
       quality: input.quality === "high" ? "high" : input.quality === "medium" ? "medium" : "low",
       size: input.size,
     });

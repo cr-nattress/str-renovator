@@ -41,4 +41,7 @@ export const CONCURRENCY = {
   analyses: 2,
   imageGeneration: 3,
   imagesPerMinute: 10,
+  analysisBatchSize: 5,
+  analysisBatchConcurrency: 2,
+  actionImageGeneration: 2,
 } as const;

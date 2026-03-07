@@ -19,3 +19,4 @@ export const queueConnection = parseRedisUrl(env.redisUrl);
 export const analysisQueue = new Queue("analysis", { connection: queueConnection });
 export const renovationQueue = new Queue("renovation", { connection: queueConnection });
 export const scrapeQueue = new Queue("scrape", { connection: queueConnection });
+export const actionImageQueue = new Queue("action-image", { connection: queueConnection });

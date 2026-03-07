@@ -3,6 +3,7 @@ import { queueConnection } from "../config/queue.js";
 import { processAnalysisJob } from "./analyze.job.js";
 import { processRenovationJob } from "./renovate.job.js";
 import { processScrapeJob } from "./scrape.job.js";
+import { processActionImageJob } from "./action-image.job.js";
 import { CONCURRENCY } from "@str-renovator/shared";
 
 export function startWorkers(): void {
@@ -21,7 +22,12 @@ export function startWorkers(): void {
     concurrency: 1,
   });
 
-  for (const worker of [analysisWorker, renovationWorker, scrapeWorker]) {
+  const actionImageWorker = new Worker("action-image", processActionImageJob, {
+    connection: queueConnection,
+    concurrency: CONCURRENCY.actionImageGeneration,
+  });
+
+  for (const worker of [analysisWorker, renovationWorker, scrapeWorker, actionImageWorker]) {
     worker.on("failed", (job, err) => {
       console.error(`[worker] Job ${job?.id} failed:`, err.message);
     });

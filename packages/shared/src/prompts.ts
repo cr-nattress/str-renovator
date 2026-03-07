@@ -82,6 +82,26 @@ export const ANALYSIS_SYSTEM_PROMPT = [
   ),
 ].join("\n");
 
+/** Builds a focused prompt for generating an action plan item preview image */
+export function buildActionItemImagePrompt(
+  actionItem: string,
+  room: string,
+  styleDirection: string
+): string {
+  return [
+    "You are editing a real estate listing photo for a short-term rental (Airbnb/VRBO).",
+    "Apply ONLY the single specific change described below to this photo.",
+    "Keep everything else in the room exactly as-is — same layout, perspective, lighting, and furnishings.",
+    "The result should look like a professional real estate photo — not AI-generated.",
+    "",
+    `Room: ${room}`,
+    `Style direction: ${styleDirection}`,
+    "",
+    "Change to apply:",
+    actionItem,
+  ].join("\n");
+}
+
 /** System prompt for per-photo text report generation */
 export const REPORT_SYSTEM_PROMPT = [
   "You are a short-term rental (STR) interior design consultant.",
@@ -106,3 +126,34 @@ export function buildAnalysisUserPrompt(
     : "";
   return `Analyze the following ${photoCount} listing photos for this property and provide your complete assessment.${contextLine}`;
 }
+
+/** Builds a batch-aware user prompt for vision analysis */
+export function buildBatchAnalysisUserPrompt(
+  photoCount: number,
+  batchIndex: number,
+  totalBatches: number,
+  context?: string
+): string {
+  const contextLine = context
+    ? `\n\nProperty context provided by the owner: ${context}`
+    : "";
+  const batchNote = totalBatches > 1
+    ? ` This is batch ${batchIndex + 1} of ${totalBatches} — you are seeing a subset of the property's photos. Analyze only these ${photoCount} photos.`
+    : "";
+  return `Analyze the following ${photoCount} listing photos for this property and provide your complete assessment.${batchNote}${contextLine}`;
+}
+
+/** System prompt for aggregating batch analysis results */
+export const AGGREGATION_SYSTEM_PROMPT = [
+  "You are an expert STR/Airbnb interior design consultant.",
+  "You previously analyzed a property's photos in multiple batches.",
+  "Now you must combine those batch results into a single cohesive analysis.",
+  "",
+  "Your tasks:",
+  "1. Write a unified property_assessment that synthesizes all batch assessments into one coherent narrative.",
+  "2. Determine a single style_direction for the whole property.",
+  "3. Merge all photos arrays into one (keep every photo entry unchanged).",
+  "4. Merge and deduplicate the action_plan — combine similar items, re-prioritize by overall impact.",
+  "",
+  "Return JSON matching the exact PropertyAnalysis structure (no markdown fences).",
+].join("\n");

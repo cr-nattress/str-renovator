@@ -5,18 +5,24 @@ import { AnalysisProgress } from "../components/analysis/AnalysisProgress";
 import { PropertyAssessment } from "../components/analysis/PropertyAssessment";
 import { PhotoAnalysisCard } from "../components/analysis/PhotoAnalysisCard";
 import { ActionPlanTable } from "../components/analysis/ActionPlanTable";
+import { useJourneyItems } from "../api/journey";
 
 export function AnalysisView() {
   const { id } = useParams<{ id: string }>();
   const { data: analysis, isLoading } = useAnalysis(id!);
   const realtime = useRealtimeUpdates(id!);
+  const { data: journeyItems } = useJourneyItems(analysis?.property_id ?? "");
 
   if (isLoading || !analysis) {
     return <div className="text-center py-12 text-gray-500">Loading...</div>;
   }
 
-  const isComplete = analysis.status === "completed";
-  const isFailed = analysis.status === "failed";
+  const currentStatus = realtime.status ?? analysis.status;
+  const isComplete =
+    currentStatus === "completed" || currentStatus === "partially_completed";
+  const isFailed = currentStatus === "failed";
+  const errorMessage =
+    realtime.error ?? (isFailed ? analysis.error : null) ?? null;
 
   return (
     <div>
@@ -31,24 +37,37 @@ export function AnalysisView() {
         Analysis Results
       </h1>
 
-      {!isComplete && !isFailed && (
+      {!isComplete && (
         <div className="mb-6">
           <AnalysisProgress
-            status={realtime.status ?? analysis.status}
+            status={currentStatus}
             completedPhotos={
               realtime.completedPhotos || analysis.completed_photos
             }
             totalPhotos={realtime.totalPhotos || analysis.total_photos}
+            completedBatches={
+              realtime.completedBatches || analysis.completed_batches
+            }
+            totalBatches={realtime.totalBatches || analysis.total_batches}
+            failedBatches={realtime.failedBatches || analysis.failed_batches}
             isConnected={realtime.isConnected}
+            error={errorMessage}
           />
         </div>
       )}
 
-      {isFailed && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-          <p className="text-sm text-red-700">
-            Analysis failed: {analysis.error || "Unknown error"}
-          </p>
+      {isComplete && currentStatus === "partially_completed" && (
+        <div className="mb-6">
+          <AnalysisProgress
+            status={currentStatus}
+            completedPhotos={analysis.completed_photos}
+            totalPhotos={analysis.total_photos}
+            completedBatches={analysis.completed_batches}
+            totalBatches={analysis.total_batches}
+            failedBatches={analysis.failed_batches}
+            isConnected={false}
+            error={null}
+          />
         </div>
       )}
 
@@ -76,7 +95,7 @@ export function AnalysisView() {
 
           {analysis.raw_json?.action_plan &&
             analysis.raw_json.action_plan.length > 0 && (
-              <ActionPlanTable actionPlan={analysis.raw_json.action_plan} />
+              <ActionPlanTable actionPlan={analysis.raw_json.action_plan} journeyItems={journeyItems} />
             )}
         </div>
       )}

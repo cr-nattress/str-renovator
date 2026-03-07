@@ -29,9 +29,11 @@ export type Tier = "free" | "pro" | "business";
 export type AnalysisStatus =
   | "pending"
   | "analyzing"
+  | "aggregating"
   | "generating_images"
   | "generating_reports"
   | "completed"
+  | "partially_completed"
   | "failed";
 export type Priority = "high" | "medium" | "low";
 export type PhotoSource = "upload" | "scrape";
@@ -41,6 +43,7 @@ export type JourneyStatus =
   | "completed"
   | "skipped";
 export type FeedbackRating = "like" | "dislike";
+export type ActionImageStatus = "pending" | "processing" | "completed" | "failed" | "skipped";
 export type ImageQuality = "low" | "medium" | "high";
 export type ImageSize =
   | "1024x1024"
@@ -94,8 +97,24 @@ export interface DbAnalysis {
   total_photos: number;
   completed_photos: number;
   error: string | null;
+  total_batches: number;
+  completed_batches: number;
+  failed_batches: number;
+  is_active: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export interface DbAnalysisBatch {
+  id: string;
+  analysis_id: string;
+  batch_index: number;
+  photo_ids: string[];
+  filenames: string[];
+  status: "pending" | "processing" | "completed" | "failed";
+  result_json: PropertyAnalysis | null;
+  error: string | null;
+  created_at: string;
 }
 
 export interface DbAnalysisPhoto {
@@ -146,6 +165,9 @@ export interface DbDesignJourneyItem {
   rooms_affected: string[];
   status: JourneyStatus;
   notes: string | null;
+  image_storage_path: string | null;
+  image_status: ActionImageStatus;
+  source_photo_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -198,6 +220,7 @@ export type SSEEvent =
   | { type: "progress"; completed: number; total: number }
   | { type: "photo_complete"; photoId: string; room: string }
   | { type: "renovation_complete"; photoId: string; renovationId: string }
+  | { type: "batch_progress"; batchIndex: number; totalBatches: number; batchStatus: "completed" | "failed" }
   | { type: "error"; message: string }
   | { type: "done" };
 
