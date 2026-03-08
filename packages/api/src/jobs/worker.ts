@@ -68,7 +68,7 @@ export function startWorkers(): void {
             error: err.message,
             attemptsMade: job.attemptsMade,
           });
-          logger.error({ jobId: job.id, queue: `${worker.name}:failed` }, "job moved to DLQ");
+          logger.error({ jobId: job.id, queue: `${worker.name}-dlq` }, "job moved to DLQ");
         }
       }
     });
