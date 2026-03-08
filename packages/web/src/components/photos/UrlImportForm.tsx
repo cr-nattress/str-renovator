@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useStartScrape } from "../../api/scrape";
 import { ScrapeStatus } from "./ScrapeStatus";
+import { ErrorAlert } from "../ErrorAlert";
 import { useQueryClient } from "@tanstack/react-query";
 
 interface Props {
@@ -55,11 +56,10 @@ export function UrlImportForm({ propertyId, onSuccess }: Props) {
       </form>
 
       {startScrape.isError && (
-        <p className="text-xs text-red-600">
-          {startScrape.error instanceof Error
-            ? startScrape.error.message
-            : "Failed to start import"}
-        </p>
+        <ErrorAlert
+          error={startScrape.error}
+          onRetry={() => startScrape.mutate(url)}
+        />
       )}
 
       {activeScrapeJobId && (

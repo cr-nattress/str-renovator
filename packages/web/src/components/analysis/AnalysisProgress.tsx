@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import type { AnalysisStatus } from "@str-renovator/shared";
+import { ErrorAlert } from "../ErrorAlert";
 
 interface Props {
   status: AnalysisStatus | null;
@@ -9,7 +10,8 @@ interface Props {
   totalBatches: number;
   failedBatches: number;
   isConnected: boolean;
-  error?: string | null;
+  error?: unknown;
+  onRetry?: () => void;
 }
 
 interface StepInfo {
@@ -68,33 +70,6 @@ const TIPS = [
   "Tip: You can re-run individual renovations with feedback to refine the results.",
 ];
 
-function friendlyError(error: string): string {
-  const lower = error.toLowerCase();
-  if (lower.includes("timeout") || lower.includes("timed out")) {
-    return "The analysis took longer than expected. This can happen with large photo sets — please try again.";
-  }
-  if (lower.includes("rate limit") || lower.includes("429")) {
-    return "Our AI service is experiencing high demand. Please wait a moment and try again.";
-  }
-  if (lower.includes("no photos")) {
-    return "No photos were found for this property. Please upload photos before running an analysis.";
-  }
-  if (
-    lower.includes("network") ||
-    lower.includes("fetch") ||
-    lower.includes("econnrefused")
-  ) {
-    return "A network issue occurred while processing your analysis. Please check your connection and try again.";
-  }
-  if (lower.includes("storage") || lower.includes("download")) {
-    return "There was a problem accessing your photos. Please try uploading them again.";
-  }
-  if (lower.includes("openai") || lower.includes("api")) {
-    return "Our AI service encountered an issue. This is usually temporary — please try again in a few minutes.";
-  }
-  return "Something unexpected happened during the analysis. Please try again, and if the issue persists, contact support.";
-}
-
 export function AnalysisProgress({
   status,
   completedPhotos,
@@ -104,6 +79,7 @@ export function AnalysisProgress({
   failedBatches,
   isConnected,
   error,
+  onRetry,
 }: Props) {
   const [tipIndex, setTipIndex] = useState(
     () => Math.floor(Math.random() * TIPS.length),
@@ -172,29 +148,7 @@ export function AnalysisProgress({
   }
 
   if (error) {
-    return (
-      <div className="bg-white rounded-lg border border-red-200 shadow-sm p-6">
-        <div className="flex items-center gap-2 mb-3">
-          <svg
-            className="w-5 h-5 text-red-500 shrink-0"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={2}
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z"
-            />
-          </svg>
-          <h3 className="text-sm font-semibold text-red-900">
-            Analysis could not be completed
-          </h3>
-        </div>
-        <p className="text-sm text-red-700">{friendlyError(error)}</p>
-      </div>
-    );
+    return <ErrorAlert error={error} onRetry={onRetry} />;
   }
 
   return (

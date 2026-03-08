@@ -1,3 +1,5 @@
+import { ApiError, isPlatformErrorBody } from "./api-error.js";
+
 const BASE_URL = import.meta.env.VITE_API_URL || "";
 
 export async function apiFetch<T>(
@@ -16,6 +18,11 @@ export async function apiFetch<T>(
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({ error: res.statusText }));
+
+    if (isPlatformErrorBody(body)) {
+      throw new ApiError(body as ConstructorParameters<typeof ApiError>[0]);
+    }
+
     throw new Error(body.error || `Request failed: ${res.status}`);
   }
 
