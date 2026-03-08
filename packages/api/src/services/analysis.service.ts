@@ -1,4 +1,5 @@
 import { openai } from "../config/openai.js";
+import { env } from "../config/env.js";
 import { chatCompletionLimiter } from "../config/rate-limiter.js";
 import {
   ANALYSIS_SYSTEM_PROMPT,
@@ -33,7 +34,7 @@ export async function analyzeProperty(
 
   const response = await chatCompletionLimiter(() =>
     openai.chat.completions.create({
-      model: "gpt-4o",
+      model: env.openaiChatModel,
       max_tokens: 4096,
       messages: [
         { role: "system", content: ANALYSIS_SYSTEM_PROMPT },

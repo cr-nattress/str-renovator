@@ -1,4 +1,5 @@
 import { openai } from "../config/openai.js";
+import { env } from "../config/env.js";
 import { chatCompletionLimiter } from "../config/rate-limiter.js";
 import {
   PROPERTY_SYNTHESIS_SYSTEM_PROMPT,
@@ -16,7 +17,7 @@ export async function synthesizePropertyProfile(input: {
 }): Promise<AiResult<Record<string, unknown>>> {
   const response = await chatCompletionLimiter(() =>
     openai.chat.completions.create({
-      model: "gpt-4o",
+      model: env.openaiChatModel,
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: PROPERTY_SYNTHESIS_SYSTEM_PROMPT },

@@ -1,5 +1,6 @@
 import sharp from "sharp";
 import { openai, toFile } from "../config/openai.js";
+import { env } from "../config/env.js";
 import { imageGenerationLimiter } from "../config/rate-limiter.js";
 import {
   buildImageEditPrompt,
@@ -28,7 +29,7 @@ export async function editImage(input: RenovateInput): Promise<AiResult<string>>
 
   const response = await imageGenerationLimiter(() =>
     openai.images.edit({
-      model: "dall-e-2",
+      model: env.openaiImageModel,
       image: file,
       prompt: input.rawPrompt ? input.prompt : buildImageEditPrompt(input.prompt),
       size: "1024x1024",
@@ -40,7 +41,7 @@ export async function editImage(input: RenovateInput): Promise<AiResult<string>>
   if (!base64) throw new Error("No image data returned from renovation");
 
   const metadata: AiMetadata = {
-    model: "dall-e-2",
+    model: env.openaiImageModel,
     tokensUsed: 0,
     promptVersion: input.rawPrompt ? ACTION_IMAGE_PROMPT_VERSION : IMAGE_EDIT_PROMPT_VERSION,
   };

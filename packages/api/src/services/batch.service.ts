@@ -1,5 +1,6 @@
 import { supabase } from "../config/supabase.js";
 import { openai } from "../config/openai.js";
+import { env } from "../config/env.js";
 import { chatCompletionLimiter } from "../config/rate-limiter.js";
 import * as analysisService from "./analysis.service.js";
 import * as storageService from "./storage.service.js";
@@ -151,7 +152,7 @@ export async function aggregateBatchResults(
   if (results.length === 1) {
     const batch = batches[0] as any;
     const metadata: AiMetadata = {
-      model: batch.model ?? "gpt-4o",
+      model: batch.model ?? env.openaiChatModel,
       tokensUsed: batch.tokens_used ?? 0,
       promptVersion: batch.prompt_version ?? AGGREGATION_PROMPT_VERSION,
     };
@@ -169,7 +170,7 @@ export async function aggregateBatchResults(
 
   const response = await chatCompletionLimiter(() =>
     openai.chat.completions.create({
-      model: "gpt-4o",
+      model: env.openaiChatModel,
       max_tokens: 4096,
       messages: [
         { role: "system", content: AGGREGATION_SYSTEM_PROMPT },

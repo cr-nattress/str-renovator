@@ -34,4 +34,7 @@ export const env = {
   frontendUrl: process.env.FRONTEND_URL ?? "http://localhost:5173",
 
   debugMode: process.env.DEBUG_MODE === "true",
+
+  openaiChatModel: process.env.OPENAI_CHAT_MODEL ?? "gpt-4o",
+  openaiImageModel: process.env.OPENAI_IMAGE_MODEL ?? "dall-e-2",
 } as const;

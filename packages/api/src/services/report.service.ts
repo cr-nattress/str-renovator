@@ -1,4 +1,5 @@
 import { openai } from "../config/openai.js";
+import { env } from "../config/env.js";
 import { chatCompletionLimiter } from "../config/rate-limiter.js";
 import {
   REPORT_SYSTEM_PROMPT,
@@ -13,7 +14,7 @@ export async function generateTextReport(
 ): Promise<AiResult<string>> {
   const response = await chatCompletionLimiter(() =>
     openai.chat.completions.create({
-      model: "gpt-4o",
+      model: env.openaiChatModel,
       max_tokens: 2048,
       messages: [
         { role: "system", content: REPORT_SYSTEM_PROMPT },
