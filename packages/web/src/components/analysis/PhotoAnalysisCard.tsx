@@ -1,12 +1,15 @@
 import { useNavigate } from "react-router-dom";
 import type { DbAnalysisPhoto, DbPhoto, Priority } from "@str-renovator/shared";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 const BASE_URL = import.meta.env.VITE_API_URL || "";
 
-const PRIORITY_STYLES: Record<Priority, string> = {
-  high: "bg-red-100 text-red-800",
-  medium: "bg-yellow-100 text-yellow-800",
-  low: "bg-green-100 text-green-800",
+const PRIORITY_VARIANT: Record<Priority, "destructive" | "secondary" | "default"> = {
+  high: "destructive",
+  medium: "secondary",
+  low: "default",
 };
 
 interface Props {
@@ -17,49 +20,48 @@ export function PhotoAnalysisCard({ analysisPhoto }: Props) {
   const navigate = useNavigate();
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+    <Card className="overflow-hidden">
       <div className="aspect-video relative">
         <img
           src={`${BASE_URL}/api/v1/photos/${analysisPhoto.photos.id}/file`}
           alt={analysisPhoto.room}
           className="w-full h-full object-cover"
         />
-        <span
-          className={`absolute top-2 right-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${PRIORITY_STYLES[analysisPhoto.priority]}`}
+        <Badge
+          variant={PRIORITY_VARIANT[analysisPhoto.priority]}
+          className="absolute top-2 right-2"
         >
           {analysisPhoto.priority}
-        </span>
+        </Badge>
       </div>
 
-      <div className="p-4">
-        <h4 className="font-semibold text-gray-900">{analysisPhoto.room}</h4>
+      <CardContent className="p-4">
+        <h4 className="font-semibold">{analysisPhoto.room}</h4>
 
         <div className="mt-2 flex flex-wrap gap-1">
           {analysisPhoto.strengths.map((s, i) => (
-            <span
-              key={i}
-              className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-700"
-            >
+            <Badge key={i} variant="outline" className="text-xs">
               {s}
-            </span>
+            </Badge>
           ))}
         </div>
 
-        <p className="mt-2 text-sm text-gray-600 line-clamp-3">
+        <p className="mt-2 text-sm text-muted-foreground line-clamp-3">
           {analysisPhoto.renovations}
         </p>
 
-        <button
+        <Button
+          variant="link"
+          className="mt-3 p-0 h-auto"
           onClick={() =>
             navigate(
               `/analysis-photos/${analysisPhoto.id}/renovations`,
             )
           }
-          className="mt-3 text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors duration-150"
         >
           View Renovation &rarr;
-        </button>
-      </div>
-    </div>
+        </Button>
+      </CardContent>
+    </Card>
   );
 }

@@ -3,6 +3,8 @@ import { useStartScrape } from "../../api/scrape";
 import { ScrapeStatus } from "./ScrapeStatus";
 import { ErrorAlert } from "../ErrorAlert";
 import { useQueryClient } from "@tanstack/react-query";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 interface Props {
   propertyId: string;
@@ -29,7 +31,6 @@ export function UrlImportForm({ propertyId, onSuccess }: Props) {
 
   const handleDone = () => {
     setActiveScrapeJobId(null);
-    // Refresh photos list
     queryClient.invalidateQueries({ queryKey: ["photos", propertyId] });
     queryClient.invalidateQueries({ queryKey: ["properties", propertyId] });
     onSuccess();
@@ -38,21 +39,20 @@ export function UrlImportForm({ propertyId, onSuccess }: Props) {
   return (
     <div className="space-y-3">
       <form onSubmit={handleSubmit} className="flex gap-2">
-        <input
+        <Input
           type="url"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           placeholder="Paste listing URL to import photos..."
           disabled={!!activeScrapeJobId}
-          className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50"
+          className="flex-1"
         />
-        <button
+        <Button
           type="submit"
           disabled={startScrape.isPending || !url.trim() || !!activeScrapeJobId}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-150 disabled:opacity-50"
         >
           {startScrape.isPending ? "Starting..." : "Import"}
-        </button>
+        </Button>
       </form>
 
       {startScrape.isError && (

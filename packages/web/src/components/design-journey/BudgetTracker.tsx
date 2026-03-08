@@ -1,3 +1,5 @@
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+
 interface Props {
   totalEstimated: number;
   totalActual: number;
@@ -16,20 +18,21 @@ export function BudgetTracker({ totalEstimated, totalActual }: Props) {
     }).format(val);
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
-      <h3 className="text-lg font-semibold text-gray-900 mb-4">Budget</h3>
-
-      <div className="space-y-3">
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-lg">Budget</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
         <div>
           <div className="flex justify-between text-sm mb-1">
-            <span className="text-gray-600">Estimated</span>
-            <span className="font-medium text-gray-900">
+            <span className="text-muted-foreground">Estimated</span>
+            <span className="font-medium">
               {formatCurrency(totalEstimated)}
             </span>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-2.5">
+          <div className="w-full bg-secondary rounded-full h-2.5">
             <div
-              className="bg-blue-600 h-2.5 rounded-full transition-all duration-500"
+              className="bg-primary h-2.5 rounded-full transition-all duration-500"
               style={{ width: `${estPct}%` }}
             />
           </div>
@@ -37,21 +40,21 @@ export function BudgetTracker({ totalEstimated, totalActual }: Props) {
 
         <div>
           <div className="flex justify-between text-sm mb-1">
-            <span className="text-gray-600">Actual</span>
-            <span className="font-medium text-gray-900">
+            <span className="text-muted-foreground">Actual</span>
+            <span className="font-medium">
               {formatCurrency(totalActual)}
             </span>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-2.5">
+          <div className="w-full bg-secondary rounded-full h-2.5">
             <div
               className={`h-2.5 rounded-full transition-all duration-500 ${
-                totalActual > totalEstimated ? "bg-red-500" : "bg-green-500"
+                totalActual > totalEstimated ? "bg-destructive" : "bg-green-500"
               }`}
               style={{ width: `${actPct}%` }}
             />
           </div>
         </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }

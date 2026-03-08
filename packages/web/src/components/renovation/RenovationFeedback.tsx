@@ -1,5 +1,8 @@
 import { useState } from "react";
 import type { FeedbackRating } from "@str-renovator/shared";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface Props {
   onSubmit: (rating: FeedbackRating, comment?: string) => void;
@@ -17,9 +20,11 @@ export function RenovationFeedback({
 
   if (isSubmitted) {
     return (
-      <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-sm text-green-700">
-        Thank you for your feedback!
-      </div>
+      <Alert>
+        <AlertDescription className="text-green-700">
+          Thank you for your feedback!
+        </AlertDescription>
+      </Alert>
     );
   }
 
@@ -31,7 +36,7 @@ export function RenovationFeedback({
           className={`px-4 py-2 rounded-lg text-lg transition-colors duration-150 ${
             rating === "like"
               ? "bg-green-100 border-2 border-green-500"
-              : "bg-gray-100 border-2 border-transparent hover:bg-gray-200"
+              : "bg-secondary border-2 border-transparent hover:bg-secondary/80"
           }`}
         >
           {"\uD83D\uDC4D"}
@@ -41,30 +46,28 @@ export function RenovationFeedback({
           className={`px-4 py-2 rounded-lg text-lg transition-colors duration-150 ${
             rating === "dislike"
               ? "bg-red-100 border-2 border-red-500"
-              : "bg-gray-100 border-2 border-transparent hover:bg-gray-200"
+              : "bg-secondary border-2 border-transparent hover:bg-secondary/80"
           }`}
         >
           {"\uD83D\uDC4E"}
         </button>
       </div>
 
-      <textarea
+      <Textarea
         value={comment}
         onChange={(e) => setComment(e.target.value)}
         rows={3}
-        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
         placeholder="Optional: add details about what you liked or would change..."
       />
 
-      <button
+      <Button
         onClick={() => {
           if (rating) onSubmit(rating, comment || undefined);
         }}
         disabled={!rating || isLoading}
-        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {isLoading ? "Submitting..." : "Submit Feedback"}
-      </button>
+      </Button>
     </div>
   );
 }

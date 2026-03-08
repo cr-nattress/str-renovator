@@ -1,5 +1,9 @@
 import { useState } from "react";
 import type { CreatePropertyDto, UpdatePropertyDto } from "@str-renovator/shared";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 
 interface Props {
   initialValues?: Partial<CreatePropertyDto & UpdatePropertyDto>;
@@ -47,144 +51,117 @@ export function PropertyForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Property Name *
-        </label>
-        <input
-          type="text"
+      <div className="space-y-2">
+        <Label htmlFor="name">Property Name *</Label>
+        <Input
+          id="name"
           value={name}
           onChange={(e) => setName(e.target.value)}
           required
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           placeholder="e.g. Mountain View Cabin"
         />
       </div>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Description
-        </label>
-        <textarea
+      <div className="space-y-2">
+        <Label htmlFor="description">Description</Label>
+        <Textarea
+          id="description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           rows={3}
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           placeholder="Brief description of the property..."
         />
       </div>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Listing URL
-        </label>
-        <input
+      <div className="space-y-2">
+        <Label htmlFor="listingUrl">Listing URL</Label>
+        <Input
+          id="listingUrl"
           type="url"
           value={listingUrl}
           onChange={(e) => setListingUrl(e.target.value)}
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           placeholder="https://airbnb.com/rooms/..."
         />
       </div>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Address Line 1
-        </label>
-        <input
-          type="text"
+      <div className="space-y-2">
+        <Label htmlFor="addressLine1">Address Line 1</Label>
+        <Input
+          id="addressLine1"
           value={addressLine1}
           onChange={(e) => setAddressLine1(e.target.value)}
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           placeholder="123 Main Street"
         />
       </div>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Address Line 2
-        </label>
-        <input
-          type="text"
+      <div className="space-y-2">
+        <Label htmlFor="addressLine2">Address Line 2</Label>
+        <Input
+          id="addressLine2"
           value={addressLine2}
           onChange={(e) => setAddressLine2(e.target.value)}
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           placeholder="Apt, suite, unit, etc."
         />
       </div>
 
       <div className="grid grid-cols-3 gap-3">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            City
-          </label>
-          <input
-            type="text"
+        <div className="space-y-2">
+          <Label htmlFor="city">City</Label>
+          <Input
+            id="city"
             value={city}
             onChange={(e) => setCity(e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             placeholder="City"
           />
         </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            State
-          </label>
-          <input
-            type="text"
+        <div className="space-y-2">
+          <Label htmlFor="state">State</Label>
+          <Input
+            id="state"
             value={state}
             onChange={(e) => setState(e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             placeholder="State"
           />
         </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            ZIP Code
-          </label>
-          <input
-            type="text"
+        <div className="space-y-2">
+          <Label htmlFor="zipCode">ZIP Code</Label>
+          <Input
+            id="zipCode"
             value={zipCode}
             onChange={(e) => setZipCode(e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             placeholder="ZIP"
           />
         </div>
       </div>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Country
-        </label>
-        <input
-          type="text"
+      <div className="space-y-2">
+        <Label htmlFor="country">Country</Label>
+        <Input
+          id="country"
           value={country}
           onChange={(e) => setCountry(e.target.value)}
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           placeholder="US"
         />
       </div>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Additional Context
-        </label>
-        <textarea
+      <div className="space-y-2">
+        <Label htmlFor="context">Additional Context</Label>
+        <Textarea
+          id="context"
           value={context}
           onChange={(e) => setContext(e.target.value)}
           rows={3}
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           placeholder="Any specific goals, style preferences, budget constraints..."
         />
       </div>
 
-      <button
+      <Button
         type="submit"
         disabled={isLoading || !name.trim()}
-        className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-full"
       >
         {isLoading ? "Saving..." : submitLabel}
-      </button>
+      </Button>
     </form>
   );
 }
