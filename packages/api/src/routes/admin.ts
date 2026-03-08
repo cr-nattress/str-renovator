@@ -7,8 +7,20 @@ import {
   actionImageDlqQueue,
   locationResearchDlqQueue,
 } from "../config/queue.js";
+import * as usageRepo from "../repositories/usage.repository.js";
 
 const router = Router();
+
+// GET /admin/usage - Get token usage stats for the current user
+router.get("/admin/usage", async (req, res, next) => {
+  try {
+    const user = req.dbUser!;
+    const stats = await usageRepo.getUsageByUser(user.id);
+    res.json(stats);
+  } catch (err) {
+    next(err);
+  }
+});
 
 const dlqQueues: Record<string, Queue> = {
   analysis: analysisDlqQueue,

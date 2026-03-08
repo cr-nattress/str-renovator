@@ -23,6 +23,9 @@ export function Sidebar() {
         <NavLink to="/pricing" className={linkClass}>
           Pricing
         </NavLink>
+        <NavLink to="/usage" className={linkClass}>
+          Usage
+        </NavLink>
       </nav>
 
       <div className="px-4 py-4 border-t border-gray-800">

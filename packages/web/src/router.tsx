@@ -6,6 +6,7 @@ import { RenovationView } from "./pages/RenovationView";
 import { DesignJourney } from "./pages/DesignJourney";
 import { Pricing } from "./pages/Pricing";
 import { JourneyItemDetail } from "./pages/JourneyItemDetail";
+import { Usage } from "./pages/Usage";
 
 export function AppRoutes() {
   return (
@@ -20,6 +21,7 @@ export function AppRoutes() {
       <Route path="/properties/:id/journey" element={<DesignJourney />} />
       <Route path="/journey/:journeyItemId" element={<JourneyItemDetail />} />
       <Route path="/pricing" element={<Pricing />} />
+      <Route path="/usage" element={<Usage />} />
     </Routes>
   );
 }
