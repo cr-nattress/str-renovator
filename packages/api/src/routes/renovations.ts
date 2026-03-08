@@ -60,7 +60,7 @@ router.post("/renovations/:id/feedback", async (req, res, next) => {
     res.status(201).json(data);
   } catch (err) {
     if (err instanceof z.ZodError) {
-      throw PlatformError.validationError(err.errors.map(e => e.message).join(", "));
+      return next(PlatformError.validationError(err.errors.map(e => e.message).join(", ")));
     }
     next(err);
   }

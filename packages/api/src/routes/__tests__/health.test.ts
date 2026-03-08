@@ -34,6 +34,11 @@ vi.mock("../../config/queue.js", () => ({
   scrapeQueue: { add: vi.fn() },
   actionImageQueue: { add: vi.fn() },
   locationResearchQueue: { add: vi.fn() },
+  analysisDlqQueue: { getJobs: vi.fn().mockResolvedValue([]) },
+  renovationDlqQueue: { getJobs: vi.fn().mockResolvedValue([]) },
+  scrapeDlqQueue: { getJobs: vi.fn().mockResolvedValue([]) },
+  actionImageDlqQueue: { getJobs: vi.fn().mockResolvedValue([]) },
+  locationResearchDlqQueue: { getJobs: vi.fn().mockResolvedValue([]) },
 }));
 
 vi.mock("../../services/queue.service.js", () => ({

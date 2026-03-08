@@ -42,7 +42,7 @@ router.post(
       res.status(202).json({ scrape_job_id: scrapeJob.id });
     } catch (err) {
       if (err instanceof z.ZodError) {
-        throw PlatformError.validationError(err.errors.map(e => e.message).join(", "));
+        return next(PlatformError.validationError(err.errors.map(e => e.message).join(", ")));
       }
       next(err);
     }
