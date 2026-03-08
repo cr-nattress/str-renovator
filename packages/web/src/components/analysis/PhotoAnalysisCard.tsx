@@ -3,6 +3,8 @@ import type { DbAnalysisPhoto, DbPhoto, Priority } from "@str-renovator/shared";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ConfidenceIndicator } from "../ai/ConfidenceIndicator";
+import { ReasoningExpander } from "../ai/ReasoningExpander";
 
 const BASE_URL = import.meta.env.VITE_API_URL || "";
 
@@ -14,9 +16,11 @@ const PRIORITY_VARIANT: Record<Priority, "destructive" | "secondary" | "default"
 
 interface Props {
   analysisPhoto: DbAnalysisPhoto & { photos: DbPhoto & { url?: string } };
+  confidence?: number;
+  reasoning?: string;
 }
 
-export function PhotoAnalysisCard({ analysisPhoto }: Props) {
+export function PhotoAnalysisCard({ analysisPhoto, confidence, reasoning }: Props) {
   const navigate = useNavigate();
 
   return (
@@ -36,7 +40,12 @@ export function PhotoAnalysisCard({ analysisPhoto }: Props) {
       </div>
 
       <CardContent className="p-4">
-        <h4 className="font-semibold">{analysisPhoto.room}</h4>
+        <div className="flex items-center gap-2">
+          <h4 className="font-semibold">{analysisPhoto.room}</h4>
+          {confidence != null && (
+            <ConfidenceIndicator confidence={confidence} />
+          )}
+        </div>
 
         <div className="mt-2 flex flex-wrap gap-1">
           {analysisPhoto.strengths.map((s, i) => (
@@ -49,6 +58,8 @@ export function PhotoAnalysisCard({ analysisPhoto }: Props) {
         <p className="mt-2 text-sm text-muted-foreground line-clamp-3">
           {analysisPhoto.renovations}
         </p>
+
+        {reasoning && <ReasoningExpander reasoning={reasoning} />}
 
         <Button
           variant="link"

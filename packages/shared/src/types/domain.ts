@@ -8,6 +8,8 @@ export interface PhotoAnalysis {
   strengths: string[];
   renovations: string;
   priority: Priority;
+  confidence?: number;
+  reasoning?: string;
 }
 
 export interface ActionItem {
@@ -21,6 +23,8 @@ export interface ActionItem {
 export interface PropertyAnalysis {
   property_assessment: string;
   style_direction: string;
+  confidence?: number;
+  reasoning?: string;
   photos: PhotoAnalysis[];
   action_plan: ActionItem[];
 }

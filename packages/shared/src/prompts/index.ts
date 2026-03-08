@@ -1,6 +1,6 @@
 import type { PropertyAnalysis, PhotoMetadataBlock } from "../types/index.js";
 
-export const ANALYSIS_PROMPT_VERSION = "v1";
+export const ANALYSIS_PROMPT_VERSION = "v2";
 export const AGGREGATION_PROMPT_VERSION = "v1";
 export const REPORT_PROMPT_VERSION = "v1";
 export const LISTING_EXTRACTION_PROMPT_VERSION = "v1";
@@ -64,6 +64,12 @@ export const ANALYSIS_SYSTEM_PROMPT = [
   "You MUST respect these constraints. Do NOT recommend changes that violate them.",
   "If a constraint conflicts with an otherwise good recommendation, skip that recommendation for the photo.",
   "",
+  "CONFIDENCE & REASONING:",
+  "- Include a top-level 'confidence' field (0.0–1.0) indicating how confident you are in your overall assessment. 0.0 = very uncertain, 1.0 = highly confident.",
+  "- Include a top-level 'reasoning' field explaining the key factors behind your assessment — what you observed, what was unclear, and what assumptions you made.",
+  "- For each photo, also include 'confidence' (0.0–1.0) for how confident you are in that specific photo's analysis, and 'reasoning' explaining your rationale for that photo's recommendations.",
+  "- Be honest about uncertainty. Low-quality photos, ambiguous angles, or unusual spaces should lower confidence.",
+  "",
   "Return your analysis as JSON matching this exact structure (no markdown fences, just raw JSON):",
   JSON.stringify(
     {
@@ -71,6 +77,8 @@ export const ANALYSIS_SYSTEM_PROMPT = [
         "Overall vibe, strengths, design coherence, and weaknesses...",
       style_direction:
         "Recommended overall style direction for the property...",
+      confidence: 0.85,
+      reasoning: "Key factors behind the overall assessment...",
       photos: [
         {
           filename: "photo_01.jpeg",
@@ -79,6 +87,8 @@ export const ANALYSIS_SYSTEM_PROMPT = [
           renovations:
             "Specific renovation instructions for this photo. Be detailed and actionable.",
           priority: "high",
+          confidence: 0.9,
+          reasoning: "Why these specific renovations were recommended for this photo...",
         },
       ],
       action_plan: [

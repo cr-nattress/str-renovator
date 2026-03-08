@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useJourneyItem, useUpdateJourneyItem } from "../api/journey";
 import { PhotoCompare } from "../components/photos/PhotoCompare";
+import { JourneyItemDetailSkeleton } from "../components/skeletons";
 import type {
   JourneyStatus,
   Priority,
@@ -82,7 +83,7 @@ export function JourneyItemDetail() {
   };
 
   if (isLoading) {
-    return <div className="text-center py-12 text-gray-500">Loading...</div>;
+    return <JourneyItemDetailSkeleton />;
   }
 
   if (!item) {

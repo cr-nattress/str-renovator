@@ -8,6 +8,7 @@ import {
 import { PhotoCompare } from "../components/photos/PhotoCompare";
 import { RenovationFeedback } from "../components/renovation/RenovationFeedback";
 import { RenovationHistory } from "../components/renovation/RenovationHistory";
+import { RenovationViewSkeleton } from "../components/skeletons";
 import type { FeedbackRating } from "@str-renovator/shared";
 
 const BASE_URL = import.meta.env.VITE_API_URL || "";
@@ -29,7 +30,7 @@ export function RenovationView() {
   const rerunRenovation = useRerunRenovation(latestRenovationId);
 
   if (isLoading || !data) {
-    return <div className="text-center py-12 text-gray-500">Loading...</div>;
+    return <RenovationViewSkeleton />;
   }
 
   const latestRenovation = data.renovation_images.length

@@ -6,6 +6,7 @@ import { PropertyAssessment } from "../components/analysis/PropertyAssessment";
 import { PhotoAnalysisCard } from "../components/analysis/PhotoAnalysisCard";
 import { ActionPlanTable } from "../components/analysis/ActionPlanTable";
 import { useJourneyItems } from "../api/journey";
+import { AnalysisViewSkeleton } from "../components/skeletons";
 
 export function AnalysisView() {
   const { id } = useParams<{ id: string }>();
@@ -14,7 +15,7 @@ export function AnalysisView() {
   const { data: journeyItems } = useJourneyItems(analysis?.property_id ?? "");
 
   if (isLoading || !analysis) {
-    return <div className="text-center py-12 text-gray-500">Loading...</div>;
+    return <AnalysisViewSkeleton />;
   }
 
   const currentStatus = realtime.status ?? analysis.status;
@@ -77,6 +78,8 @@ export function AnalysisView() {
             <PropertyAssessment
               assessment={analysis.property_assessment}
               styleDirection={analysis.style_direction ?? ""}
+              confidence={analysis.raw_json?.confidence}
+              reasoning={analysis.raw_json?.reasoning}
             />
           )}
 
@@ -86,9 +89,19 @@ export function AnalysisView() {
                 Photo Analysis
               </h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {analysis.analysis_photos.map((ap) => (
-                  <PhotoAnalysisCard key={ap.id} analysisPhoto={ap} />
-                ))}
+                {analysis.analysis_photos.map((ap) => {
+                  const rawPhoto = analysis.raw_json?.photos?.find(
+                    (p) => p.filename === ap.photos?.filename
+                  );
+                  return (
+                    <PhotoAnalysisCard
+                      key={ap.id}
+                      analysisPhoto={ap}
+                      confidence={rawPhoto?.confidence}
+                      reasoning={rawPhoto?.reasoning}
+                    />
+                  );
+                })}
               </div>
             </>
           )}

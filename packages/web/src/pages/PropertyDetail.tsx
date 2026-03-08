@@ -12,6 +12,7 @@ import { PhotoGrid } from "../components/photos/PhotoGrid";
 import { PhotoDetailModal } from "../components/photos/PhotoDetailModal";
 import { UrlImportForm } from "../components/photos/UrlImportForm";
 import { useResearchLocation } from "../api/scrape";
+import { PropertyDetailSkeleton } from "../components/skeletons";
 import { useQueryClient } from "@tanstack/react-query";
 import type { AnalysisStatus, DbPhoto } from "@str-renovator/shared";
 
@@ -47,7 +48,7 @@ export function PropertyDetail() {
   const queryClient = useQueryClient();
 
   if (isLoading || !property) {
-    return <div className="text-center py-12 text-gray-500">Loading...</div>;
+    return <PropertyDetailSkeleton />;
   }
 
   const tabs: { key: Tab; label: string }[] = [

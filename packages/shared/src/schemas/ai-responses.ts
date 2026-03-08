@@ -6,6 +6,8 @@ export const PhotoAnalysisSchema = z.object({
   strengths: z.array(z.string()),
   renovations: z.string(),
   priority: z.enum(["high", "medium", "low"]),
+  confidence: z.number().min(0).max(1).optional(),
+  reasoning: z.string().optional(),
 });
 
 export const ActionItemSchema = z.object({
@@ -19,6 +21,8 @@ export const ActionItemSchema = z.object({
 export const PropertyAnalysisSchema = z.object({
   property_assessment: z.string(),
   style_direction: z.string(),
+  confidence: z.number().min(0).max(1).optional(),
+  reasoning: z.string().optional(),
   photos: z.array(PhotoAnalysisSchema),
   action_plan: z.array(ActionItemSchema),
 });

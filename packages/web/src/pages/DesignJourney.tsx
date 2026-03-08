@@ -6,6 +6,7 @@ import {
 } from "../api/journey";
 import { BudgetTracker } from "../components/design-journey/BudgetTracker";
 import { ActionItemCard } from "../components/design-journey/ActionItemCard";
+import { JourneyItemsSkeleton } from "../components/skeletons";
 import type { JourneyStatus, UpdateJourneyItemDto } from "@str-renovator/shared";
 
 const SECTIONS: { status: JourneyStatus; label: string }[] = [
@@ -26,7 +27,7 @@ export function DesignJourney() {
   };
 
   if (isLoading) {
-    return <div className="text-center py-12 text-gray-500">Loading...</div>;
+    return <JourneyItemsSkeleton />;
   }
 
   return (
