@@ -1,10 +1,11 @@
 import { Router } from "express";
 import { z } from "zod";
-import { supabase } from "../config/supabase.js";
 import { checkTierLimit } from "../middleware/tier.js";
 import { TIER_LIMITS, PlatformError } from "@str-renovator/shared";
 import { enqueueRenovation } from "../services/queue.service.js";
 import * as storageService from "../services/storage.service.js";
+import * as renovationRepo from "../repositories/renovation.repository.js";
+import * as feedbackRepo from "../repositories/feedback.repository.js";
 
 const router = Router();
 
@@ -18,18 +19,11 @@ router.get("/analysis-photos/:id/renovations", async (req, res, next) => {
   try {
     const user = req.dbUser!;
 
-    const { data: renovations, error } = await supabase
-      .from("renovations")
-      .select("*")
-      .eq("analysis_photo_id", req.params.id)
-      .eq("user_id", user.id)
-      .order("iteration", { ascending: true });
-
-    if (error) throw error;
+    const renovations = await renovationRepo.listByAnalysisPhoto(req.params.id, user.id);
 
     // Add signed URLs
     const withUrls = await Promise.all(
-      (renovations ?? []).map(async (r: any) => ({
+      renovations.map(async (r: any) => ({
         ...r,
         url: r.storage_path
           ? await storageService.getSignedUrl(r.storage_path)
@@ -50,29 +44,19 @@ router.post("/renovations/:id/feedback", async (req, res, next) => {
     const body = feedbackSchema.parse(req.body);
 
     // Verify ownership
-    const { data: renovation } = await supabase
-      .from("renovations")
-      .select("id, user_id")
-      .eq("id", req.params.id)
-      .eq("user_id", user.id)
-      .single();
+    const renovation = await renovationRepo.findOwnershipCheck(req.params.id, user.id);
 
     if (!renovation) {
       throw PlatformError.notFound("Renovation", req.params.id);
     }
 
-    const { data, error } = await supabase
-      .from("feedback")
-      .insert({
-        renovation_id: req.params.id,
-        user_id: user.id,
-        rating: body.rating,
-        comment: body.comment ?? null,
-      })
-      .select()
-      .single();
+    const data = await feedbackRepo.create({
+      renovation_id: req.params.id,
+      user_id: user.id,
+      rating: body.rating,
+      comment: body.comment ?? null,
+    });
 
-    if (error) throw error;
     res.status(201).json(data);
   } catch (err) {
     if (err instanceof z.ZodError) {
@@ -91,12 +75,7 @@ router.post(
       const user = req.dbUser!;
 
       // Get the original renovation
-      const { data: renovation } = await supabase
-        .from("renovations")
-        .select("*")
-        .eq("id", req.params.id)
-        .eq("user_id", user.id)
-        .single();
+      const renovation = await renovationRepo.findByIdAndUser(req.params.id as string, user.id);
 
       if (!renovation) {
         res.status(404).json({ error: "Renovation not found" });
@@ -104,33 +83,21 @@ router.post(
       }
 
       // Check rerun limit
-      const { count } = await supabase
-        .from("renovations")
-        .select("*", { count: "exact", head: true })
-        .eq("analysis_photo_id", renovation.analysis_photo_id);
+      const count = await renovationRepo.countByAnalysisPhoto(renovation.analysis_photo_id);
 
       const limit = (req as any).tierLimit ?? TIER_LIMITS[user.tier].rerunsPerPhoto;
-      if ((count ?? 0) >= limit + 1) {
+      if (count >= limit + 1) {
         // +1 for original
         throw PlatformError.tierLimitReached("reruns per photo", limit);
       }
 
       // Collect all feedback for renovations of this analysis_photo
-      const { data: allRenovations } = await supabase
-        .from("renovations")
-        .select("id")
-        .eq("analysis_photo_id", renovation.analysis_photo_id);
+      const renovationIds = await renovationRepo.listIdsByAnalysisPhoto(renovation.analysis_photo_id);
 
-      const renovationIds = (allRenovations ?? []).map((r: any) => r.id);
-
-      const { data: allFeedback } = await supabase
-        .from("feedback")
-        .select("*")
-        .in("renovation_id", renovationIds)
-        .order("created_at", { ascending: true });
+      const allFeedback = await feedbackRepo.listByRenovationIds(renovationIds);
 
       // Build feedback context
-      const feedbackContext = (allFeedback ?? [])
+      const feedbackContext = allFeedback
         .map(
           (f: any) =>
             `[${f.rating}]${f.comment ? ` ${f.comment}` : ""}`
@@ -138,20 +105,14 @@ router.post(
         .join("\n");
 
       // Create new renovation
-      const { data: newRenovation, error } = await supabase
-        .from("renovations")
-        .insert({
-          analysis_photo_id: renovation.analysis_photo_id,
-          user_id: user.id,
-          iteration: renovation.iteration + 1,
-          parent_renovation_id: renovation.id,
-          feedback_context: feedbackContext || null,
-          status: "pending",
-        })
-        .select()
-        .single();
-
-      if (error || !newRenovation) throw error ?? new Error("Failed to create renovation");
+      const newRenovation = await renovationRepo.create({
+        analysis_photo_id: renovation.analysis_photo_id,
+        user_id: user.id,
+        iteration: renovation.iteration + 1,
+        parent_renovation_id: renovation.id,
+        feedback_context: feedbackContext || null,
+        status: "pending",
+      });
 
       const quality = req.body.quality ?? TIER_LIMITS[user.tier].imageQuality;
       const size = req.body.size ?? "auto";

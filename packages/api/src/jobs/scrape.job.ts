@@ -1,5 +1,4 @@
 import type { Job } from "bullmq";
-import { supabase } from "../config/supabase.js";
 import { createChildLogger } from "../config/logger.js";
 import {
   scrapeListingPhotos,
@@ -9,6 +8,9 @@ import { uploadPhoto } from "../services/storage.service.js";
 import { extractListingData } from "../services/listing-extraction.service.js";
 import { researchLocation } from "../services/location-research.service.js";
 import { synthesizePropertyProfile } from "../services/property-synthesis.service.js";
+import * as scrapeJobRepo from "../repositories/scrape-job.repository.js";
+import * as propertyRepo from "../repositories/property.repository.js";
+import * as photoRepo from "../repositories/photo.repository.js";
 
 interface ScrapeJobData {
   scrapeJobId: string;
@@ -23,27 +25,20 @@ export async function processScrapeJob(
   const { scrapeJobId, propertyId, userId, url } = job.data;
   const log = createChildLogger({ jobType: "scrape", scrapeJobId, propertyId });
 
-  const updateJob = async (fields: Record<string, unknown>) => {
-    await supabase
-      .from("scrape_jobs")
-      .update(fields)
-      .eq("id", scrapeJobId);
-  };
-
   try {
     // Phase 1: Scraping photo URLs + page content
-    await updateJob({ status: "scraping" });
+    await scrapeJobRepo.updateStatus(scrapeJobId, "scraping");
     log.info({ url }, "scraping photos");
 
     const { photos, pageContent } = await scrapeListingPhotos(url);
 
     if (photos.length === 0) {
-      await updateJob({ status: "failed", error: "No photos found on page" });
+      await scrapeJobRepo.updateStatus(scrapeJobId, "failed", { error: "No photos found on page" });
       return;
     }
 
     // Phase 2: Extract listing data via LLM
-    await updateJob({ status: "extracting_data" });
+    await scrapeJobRepo.updateStatus(scrapeJobId, "extracting_data");
     log.info("extracting listing data");
 
     try {
@@ -56,11 +51,7 @@ export async function processScrapeJob(
       };
 
       // Fetch current property to check which fields are empty
-      const { data: currentProperty } = await supabase
-        .from("properties")
-        .select("name, description, address_line1, address_line2, city, state, zip_code, country")
-        .eq("id", propertyId)
-        .single();
+      const currentProperty = await propertyRepo.findById(propertyId);
 
       // Auto-populate empty fields
       if (currentProperty) {
@@ -90,12 +81,9 @@ export async function processScrapeJob(
         }
       }
 
-      await supabase
-        .from("properties")
-        .update(propertyUpdate)
-        .eq("id", propertyId);
+      await propertyRepo.updateById(propertyId, propertyUpdate);
 
-      await updateJob({ data_extracted: true });
+      await scrapeJobRepo.updateFields(scrapeJobId, { data_extracted: true });
       log.info("listing data extracted");
     } catch (err) {
       log.warn(
@@ -105,7 +93,7 @@ export async function processScrapeJob(
     }
 
     // Phase 3: Download photos
-    await updateJob({ status: "downloading", total_photos: photos.length });
+    await scrapeJobRepo.updateStatus(scrapeJobId, "downloading", { total_photos: photos.length });
     log.info({ photoCount: photos.length }, "downloading photos");
 
     let downloaded = 0;
@@ -120,7 +108,7 @@ export async function processScrapeJob(
           "image/jpeg"
         );
 
-        await supabase.from("photos").insert({
+        await photoRepo.create({
           property_id: propertyId,
           user_id: userId,
           filename: photo.filename,
@@ -130,7 +118,7 @@ export async function processScrapeJob(
         });
 
         downloaded++;
-        await updateJob({ downloaded_photos: downloaded });
+        await scrapeJobRepo.updateFields(scrapeJobId, { downloaded_photos: downloaded });
       } catch (err) {
         log.warn(
           { url: photo.url, err: err instanceof Error ? err.message : err },
@@ -140,24 +128,19 @@ export async function processScrapeJob(
     }
 
     if (downloaded === 0) {
-      await updateJob({
-        status: "failed",
+      await scrapeJobRepo.updateStatus(scrapeJobId, "failed", {
         error: "All photo downloads failed",
       });
       return;
     }
 
     // Phase 4: Research location
-    await updateJob({ status: "researching_location" });
+    await scrapeJobRepo.updateStatus(scrapeJobId, "researching_location");
     log.info("researching location");
 
     try {
       // Fetch property with potentially updated address data
-      const { data: prop } = await supabase
-        .from("properties")
-        .select("name, address_line1, address_line2, city, state, zip_code, country, scraped_data")
-        .eq("id", propertyId)
-        .single();
+      const prop = await propertyRepo.findById(propertyId);
 
       const city = prop?.city || (prop?.scraped_data as Record<string, unknown>)?.city as string;
       const state = prop?.state || (prop?.scraped_data as Record<string, unknown>)?.state as string;
@@ -175,12 +158,9 @@ export async function processScrapeJob(
         });
         log.info({ model: locationMeta.model, tokensUsed: locationMeta.tokensUsed, promptVersion: locationMeta.promptVersion }, "location research AI metadata");
 
-        await supabase
-          .from("properties")
-          .update({ location_profile: locationProfile })
-          .eq("id", propertyId);
+        await propertyRepo.updateById(propertyId, { location_profile: locationProfile });
 
-        await updateJob({ location_researched: true });
+        await scrapeJobRepo.updateFields(scrapeJobId, { location_researched: true });
         log.info("location research completed");
       } else {
         log.info("no city/state available, skipping location research");
@@ -193,15 +173,11 @@ export async function processScrapeJob(
     }
 
     // Phase 5: Synthesize property profile from scraped data + location profile
-    await updateJob({ status: "synthesizing" });
+    await scrapeJobRepo.updateStatus(scrapeJobId, "synthesizing");
     log.info("synthesizing property profile");
 
     try {
-      const { data: propForSynthesis } = await supabase
-        .from("properties")
-        .select("name, scraped_data, location_profile")
-        .eq("id", propertyId)
-        .single();
+      const propForSynthesis = await propertyRepo.findById(propertyId);
 
       const scrapedData = propForSynthesis?.scraped_data as Record<string, unknown> | null;
       const locationProfile = propForSynthesis?.location_profile as Record<string, unknown> | null;
@@ -214,10 +190,7 @@ export async function processScrapeJob(
         });
         log.info({ model: synthesisMeta.model, tokensUsed: synthesisMeta.tokensUsed, promptVersion: synthesisMeta.promptVersion }, "property synthesis AI metadata");
 
-        await supabase
-          .from("properties")
-          .update({ property_profile: propertyProfile })
-          .eq("id", propertyId);
+        await propertyRepo.updateById(propertyId, { property_profile: propertyProfile });
 
         log.info("property profile synthesized");
       } else {
@@ -230,12 +203,12 @@ export async function processScrapeJob(
       );
     }
 
-    await updateJob({ status: "completed", downloaded_photos: downloaded });
+    await scrapeJobRepo.updateStatus(scrapeJobId, "completed", { downloaded_photos: downloaded });
     log.info({ downloaded, total: photos.length }, "scrape completed");
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     log.error({ err: message }, "job failed");
-    await updateJob({ status: "failed", error: message });
+    await scrapeJobRepo.updateStatus(scrapeJobId, "failed", { error: message });
     throw err;
   }
 }

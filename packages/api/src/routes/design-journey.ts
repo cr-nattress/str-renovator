@@ -1,8 +1,10 @@
 import { Router } from "express";
 import { z } from "zod";
-import { supabase } from "../config/supabase.js";
 import { PlatformError } from "@str-renovator/shared";
 import * as storageService from "../services/storage.service.js";
+import * as propertyRepo from "../repositories/property.repository.js";
+import * as journeyRepo from "../repositories/design-journey.repository.js";
+import * as photoRepo from "../repositories/photo.repository.js";
 
 const router = Router();
 
@@ -28,24 +30,13 @@ router.get("/properties/:propertyId/journey", async (req, res, next) => {
     const { propertyId } = req.params;
 
     // Verify ownership
-    const { data: property } = await supabase
-      .from("properties")
-      .select("id")
-      .eq("id", propertyId)
-      .eq("user_id", user.id)
-      .single();
+    const property = await propertyRepo.findByIdWithColumns(propertyId, user.id, "id");
 
     if (!property) {
       throw PlatformError.notFound("Property", propertyId);
     }
 
-    const { data, error } = await supabase
-      .from("design_journey_items")
-      .select("*")
-      .eq("property_id", propertyId)
-      .order("priority", { ascending: true });
-
-    if (error) throw error;
+    const data = await journeyRepo.listByProperty(propertyId);
 
     // Generate signed URLs for items with images
     const itemsWithUrls = await Promise.all(
@@ -76,28 +67,18 @@ router.post("/properties/:propertyId/journey", async (req, res, next) => {
     const body = createJourneyItemSchema.parse(req.body);
 
     // Verify ownership
-    const { data: property } = await supabase
-      .from("properties")
-      .select("id")
-      .eq("id", propertyId)
-      .eq("user_id", user.id)
-      .single();
+    const property = await propertyRepo.findByIdWithColumns(propertyId, user.id, "id");
 
     if (!property) {
       throw PlatformError.notFound("Property", propertyId);
     }
 
-    const { data, error } = await supabase
-      .from("design_journey_items")
-      .insert({
-        ...body,
-        property_id: propertyId,
-        user_id: user.id,
-      })
-      .select()
-      .single();
+    const data = await journeyRepo.create({
+      ...body,
+      property_id: propertyId,
+      user_id: user.id,
+    });
 
-    if (error) throw error;
     res.status(201).json(data);
   } catch (err) {
     if (err instanceof z.ZodError) {
@@ -112,14 +93,9 @@ router.get("/journey/:id", async (req, res, next) => {
   try {
     const user = req.dbUser!;
 
-    const { data: item, error } = await supabase
-      .from("design_journey_items")
-      .select("*")
-      .eq("id", req.params.id)
-      .eq("user_id", user.id)
-      .single();
+    const item = await journeyRepo.findByIdAndUser(req.params.id, user.id);
 
-    if (error || !item) {
+    if (!item) {
       throw PlatformError.notFound("Journey item", req.params.id);
     }
 
@@ -136,11 +112,7 @@ router.get("/journey/:id", async (req, res, next) => {
     // Generate signed URL for the original source photo
     let source_photo_url: string | null = null;
     if (item.source_photo_id) {
-      const { data: photo } = await supabase
-        .from("photos")
-        .select("storage_path")
-        .eq("id", item.source_photo_id)
-        .single();
+      const photo = await photoRepo.findStoragePath(item.source_photo_id);
 
       if (photo?.storage_path) {
         try {
@@ -163,15 +135,9 @@ router.patch("/journey/:id", async (req, res, next) => {
     const user = req.dbUser!;
     const body = updateJourneyItemSchema.parse(req.body);
 
-    const { data, error } = await supabase
-      .from("design_journey_items")
-      .update(body)
-      .eq("id", req.params.id)
-      .eq("user_id", user.id)
-      .select()
-      .single();
+    const data = await journeyRepo.update(req.params.id, user.id, body);
 
-    if (error || !data) {
+    if (!data) {
       throw PlatformError.notFound("Journey item", req.params.id);
     }
     res.json(data);
@@ -190,23 +156,13 @@ router.get("/properties/:propertyId/journey/summary", async (req, res, next) => 
     const { propertyId } = req.params;
 
     // Verify ownership
-    const { data: property } = await supabase
-      .from("properties")
-      .select("id")
-      .eq("id", propertyId)
-      .eq("user_id", user.id)
-      .single();
+    const property = await propertyRepo.findByIdWithColumns(propertyId, user.id, "id");
 
     if (!property) {
       throw PlatformError.notFound("Property", propertyId);
     }
 
-    const { data: items, error } = await supabase
-      .from("design_journey_items")
-      .select("*")
-      .eq("property_id", propertyId);
-
-    if (error) throw error;
+    const items = await journeyRepo.listByProperty(propertyId);
 
     const allItems = items ?? [];
 

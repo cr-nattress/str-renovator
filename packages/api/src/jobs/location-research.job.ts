@@ -1,7 +1,7 @@
 import type { Job } from "bullmq";
-import { supabase } from "../config/supabase.js";
 import { createChildLogger } from "../config/logger.js";
 import { researchLocation } from "../services/location-research.service.js";
+import * as propertyRepo from "../repositories/property.repository.js";
 
 interface LocationResearchJobData {
   propertyId: string;
@@ -15,12 +15,7 @@ export async function processLocationResearchJob(
   const log = createChildLogger({ jobType: "location-research", propertyId });
 
   try {
-    const { data: property } = await supabase
-      .from("properties")
-      .select("name, address_line1, address_line2, city, state, zip_code, country, scraped_data")
-      .eq("id", propertyId)
-      .eq("user_id", userId)
-      .single();
+    const property = await propertyRepo.findByIdAndUser(propertyId, userId);
 
     if (!property) {
       throw new Error("Property not found");
@@ -40,10 +35,7 @@ export async function processLocationResearchJob(
     });
     log.info({ model: metadata.model, tokensUsed: metadata.tokensUsed, promptVersion: metadata.promptVersion }, "location research AI metadata");
 
-    await supabase
-      .from("properties")
-      .update({ location_profile: locationProfile })
-      .eq("id", propertyId);
+    await propertyRepo.updateById(propertyId, { location_profile: locationProfile });
 
     log.info("job completed");
   } catch (err) {

@@ -1,9 +1,10 @@
 import type { Job } from "bullmq";
-import { supabase } from "../config/supabase.js";
 import { createChildLogger } from "../config/logger.js";
 import * as renovationService from "../services/renovation.service.js";
 import * as storageService from "../services/storage.service.js";
 import { buildActionItemImagePrompt, type ImageQuality, type ImageSize } from "@str-renovator/shared";
+import * as journeyRepo from "../repositories/design-journey.repository.js";
+import * as photoRepo from "../repositories/photo.repository.js";
 
 interface ActionImageJobData {
   journeyItemId: string;
@@ -38,26 +39,16 @@ export async function processActionImageJob(
   // Guard: no source photo — mark skipped and exit (not retryable)
   if (!sourcePhotoId) {
     log.warn("no source photo, marking skipped");
-    await supabase
-      .from("design_journey_items")
-      .update({ image_status: "skipped" })
-      .eq("id", journeyItemId);
+    await journeyRepo.updateById(journeyItemId, { image_status: "skipped" });
     return;
   }
 
   try {
     // 1. Set image_status to processing
-    await supabase
-      .from("design_journey_items")
-      .update({ image_status: "processing" })
-      .eq("id", journeyItemId);
+    await journeyRepo.updateById(journeyItemId, { image_status: "processing" });
 
     // 2. Get the source photo
-    const { data: photo } = await supabase
-      .from("photos")
-      .select("*")
-      .eq("id", sourcePhotoId)
-      .single();
+    const photo = await photoRepo.findById(sourcePhotoId);
 
     if (!photo) throw new Error("Source photo not found");
 
@@ -97,16 +88,13 @@ export async function processActionImageJob(
     );
 
     // 6. Update journey item with completed image and AI metadata
-    await supabase
-      .from("design_journey_items")
-      .update({
-        image_storage_path: storagePath,
-        image_status: "completed",
-        prompt_version: metadata.promptVersion,
-        model: metadata.model,
-        tokens_used: metadata.tokensUsed,
-      })
-      .eq("id", journeyItemId);
+    await journeyRepo.updateById(journeyItemId, {
+      image_storage_path: storagePath,
+      image_status: "completed",
+      prompt_version: metadata.promptVersion,
+      model: metadata.model,
+      tokens_used: metadata.tokensUsed,
+    });
 
     log.info({ durationMs: Date.now() - startTime }, "job completed");
   } catch (err) {
@@ -115,10 +103,7 @@ export async function processActionImageJob(
     log.error({ err: message, attempt: job.attemptsMade + 1, maxAttempts: job.opts.attempts ?? 1 }, "job failed");
 
     if (isFinalAttempt) {
-      await supabase
-        .from("design_journey_items")
-        .update({ image_status: "failed" })
-        .eq("id", journeyItemId);
+      await journeyRepo.updateById(journeyItemId, { image_status: "failed" });
     }
     // Leave as "processing" on non-final attempts so UI doesn't flash "failed"
 

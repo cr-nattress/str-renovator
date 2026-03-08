@@ -1,6 +1,6 @@
 import { clerkMiddleware, getAuth } from "@clerk/express";
 import type { Request, Response, NextFunction } from "express";
-import { supabase } from "../config/supabase.js";
+import * as userRepo from "../repositories/user.repository.js";
 import type { DbUser } from "@str-renovator/shared";
 
 declare global {
@@ -25,18 +25,14 @@ export async function requireAuth(
       return;
     }
 
-    const { data: user, error } = await supabase
-      .from("users")
-      .select("*")
-      .eq("clerk_id", userId)
-      .single();
+    const user = await userRepo.findByClerkId(userId);
 
-    if (error || !user) {
+    if (!user) {
       res.status(401).json({ error: "User not found" });
       return;
     }
 
-    req.dbUser = user as DbUser;
+    req.dbUser = user;
     next();
   } catch (err) {
     next(err);

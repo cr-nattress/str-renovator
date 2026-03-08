@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { Webhook } from "svix";
 import { env } from "../config/env.js";
-import { supabase } from "../config/supabase.js";
+import * as userRepo from "../repositories/user.repository.js";
 
 const router = Router();
 
@@ -26,7 +26,7 @@ router.post("/clerk", async (req, res, next) => {
     const { type, data } = event;
 
     if (type === "user.created") {
-      await supabase.from("users").insert({
+      await userRepo.create({
         clerk_id: data.id,
         email:
           data.email_addresses?.[0]?.email_address ?? "",
@@ -34,17 +34,14 @@ router.post("/clerk", async (req, res, next) => {
         avatar_url: data.image_url ?? null,
       });
     } else if (type === "user.updated") {
-      await supabase
-        .from("users")
-        .update({
-          email:
-            data.email_addresses?.[0]?.email_address ?? "",
-          name: [data.first_name, data.last_name].filter(Boolean).join(" ") || null,
-          avatar_url: data.image_url ?? null,
-        })
-        .eq("clerk_id", data.id);
+      await userRepo.updateByClerkId(data.id, {
+        email:
+          data.email_addresses?.[0]?.email_address ?? "",
+        name: [data.first_name, data.last_name].filter(Boolean).join(" ") || null,
+        avatar_url: data.image_url ?? null,
+      });
     } else if (type === "user.deleted") {
-      await supabase.from("users").delete().eq("clerk_id", data.id);
+      await userRepo.removeByClerkId(data.id);
     }
 
     res.status(200).json({ received: true });

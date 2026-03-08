@@ -1,6 +1,5 @@
 import { Router } from "express";
 import multer from "multer";
-import { supabase } from "../config/supabase.js";
 import { checkTierLimit } from "../middleware/tier.js";
 import {
   TIER_LIMITS,
@@ -9,6 +8,8 @@ import {
   PlatformError,
 } from "@str-renovator/shared";
 import * as storageService from "../services/storage.service.js";
+import * as propertyRepo from "../repositories/property.repository.js";
+import * as photoRepo from "../repositories/photo.repository.js";
 
 const router = Router();
 const upload = multer({
@@ -34,22 +35,14 @@ router.post(
       const propertyId = req.params.propertyId as string;
 
       // Verify property ownership
-      const { data: property } = await supabase
-        .from("properties")
-        .select("id")
-        .eq("id", propertyId)
-        .eq("user_id", user.id)
-        .single();
+      const property = await propertyRepo.findByIdWithColumns(propertyId, user.id, "id");
 
       if (!property) {
         throw PlatformError.notFound("Property", propertyId ?? req.params.propertyId);
       }
 
       // Check photo count limit
-      const { count } = await supabase
-        .from("photos")
-        .select("*", { count: "exact", head: true })
-        .eq("property_id", propertyId);
+      const count = await photoRepo.countByProperty(propertyId);
 
       const files = req.files as Express.Multer.File[];
       if (!files || files.length === 0) {
@@ -57,7 +50,7 @@ router.post(
       }
 
       const limit = (req as any).tierLimit ?? TIER_LIMITS[user.tier].photosPerProperty;
-      if ((count ?? 0) + files.length > limit) {
+      if (count + files.length > limit) {
         throw PlatformError.tierLimitReached("photos per property", limit);
       }
 
@@ -72,20 +65,15 @@ router.post(
           file.mimetype
         );
 
-        const { data: photo, error } = await supabase
-          .from("photos")
-          .insert({
-            property_id: propertyId,
-            user_id: user.id,
-            filename: file.originalname,
-            storage_path: storagePath,
-            mime_type: file.mimetype,
-            source: "upload",
-          })
-          .select()
-          .single();
+        const photo = await photoRepo.create({
+          property_id: propertyId,
+          user_id: user.id,
+          filename: file.originalname,
+          storage_path: storagePath,
+          mime_type: file.mimetype,
+          source: "upload",
+        });
 
-        if (error) throw error;
         insertedPhotos.push(photo);
       }
 
@@ -103,30 +91,19 @@ router.get("/properties/:propertyId/photos", async (req, res, next) => {
     const { propertyId } = req.params;
 
     // Verify property ownership
-    const { data: property } = await supabase
-      .from("properties")
-      .select("id")
-      .eq("id", propertyId)
-      .eq("user_id", user.id)
-      .single();
+    const property = await propertyRepo.findByIdWithColumns(propertyId, user.id, "id");
 
     if (!property) {
       throw PlatformError.notFound("Property", propertyId ?? req.params.propertyId);
       return;
     }
 
-    const { data: photos, error } = await supabase
-      .from("photos")
-      .select("*")
-      .eq("property_id", propertyId)
-      .order("created_at", { ascending: true });
-
-    if (error) throw error;
+    const photos = await photoRepo.listByProperty(propertyId);
 
     // Add signed URLs — skip photos whose storage objects are missing
     const photosWithUrls = (
       await Promise.all(
-        (photos ?? []).map(async (photo: any) => {
+        photos.map(async (photo: any) => {
           try {
             const url = await storageService.getSignedUrl(photo.storage_path);
             return { ...photo, url };
@@ -148,12 +125,7 @@ router.patch("/photos/:id", async (req, res, next) => {
   try {
     const user = req.dbUser!;
 
-    const { data: photo } = await supabase
-      .from("photos")
-      .select("id")
-      .eq("id", req.params.id)
-      .eq("user_id", user.id)
-      .single();
+    const photo = await photoRepo.findByIdAndUser(req.params.id, user.id);
 
     if (!photo) {
       throw PlatformError.notFound("Photo", req.params.id);
@@ -170,14 +142,7 @@ router.patch("/photos/:id", async (req, res, next) => {
       throw PlatformError.validationError("No fields to update");
     }
 
-    const { data: updated, error } = await supabase
-      .from("photos")
-      .update(updates)
-      .eq("id", req.params.id)
-      .select()
-      .single();
-
-    if (error) throw error;
+    const updated = await photoRepo.update(req.params.id, updates);
     res.json(updated);
   } catch (err) {
     next(err);
@@ -189,25 +154,14 @@ router.delete("/photos/:id", async (req, res, next) => {
   try {
     const user = req.dbUser!;
 
-    const { data: photo } = await supabase
-      .from("photos")
-      .select("*")
-      .eq("id", req.params.id)
-      .eq("user_id", user.id)
-      .single();
+    const photo = await photoRepo.findByIdAndUser(req.params.id, user.id);
 
     if (!photo) {
       throw PlatformError.notFound("Photo", req.params.id);
     }
 
     await storageService.deletePhoto(photo.storage_path);
-
-    const { error } = await supabase
-      .from("photos")
-      .delete()
-      .eq("id", req.params.id);
-
-    if (error) throw error;
+    await photoRepo.remove(req.params.id);
     res.status(204).send();
   } catch (err) {
     next(err);

@@ -11,9 +11,9 @@
  */
 
 import type { Job } from "bullmq";
-import { supabase } from "../config/supabase.js";
 import { createChildLogger } from "../config/logger.js";
 import type { ImageQuality, ImageSize } from "@str-renovator/shared";
+import * as analysisRepo from "../repositories/analysis.repository.js";
 
 import { fetchAnalysisContext } from "./steps/fetch-context.js";
 import { processBatches } from "./steps/process-batches.js";
@@ -58,10 +58,7 @@ export async function processAnalysisJob(
     await finalizeAnalysis(analysisId, analysisPhotoIds, failedCount);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
-    await supabase
-      .from("analyses")
-      .update({ status: "failed", error: message })
-      .eq("id", analysisId);
+    await analysisRepo.updateStatus(analysisId, "failed", { error: message });
     throw err;
   }
 }

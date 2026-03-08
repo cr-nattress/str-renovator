@@ -1,8 +1,8 @@
 import { Router } from "express";
 import { z } from "zod";
-import { supabase } from "../config/supabase.js";
 import { checkTierLimit } from "../middleware/tier.js";
 import { TIER_LIMITS, PlatformError } from "@str-renovator/shared";
+import * as propertyRepo from "../repositories/property.repository.js";
 
 const router = Router();
 
@@ -41,23 +41,14 @@ router.post("/", checkTierLimit("properties"), async (req, res, next) => {
     const body = createPropertySchema.parse(req.body);
 
     // Check current count against tier limit
-    const { count } = await supabase
-      .from("properties")
-      .select("*", { count: "exact", head: true })
-      .eq("user_id", user.id);
+    const count = await propertyRepo.countByUser(user.id);
 
     const limit = (req as any).tierLimit ?? TIER_LIMITS[user.tier].properties;
-    if ((count ?? 0) >= limit) {
+    if (count >= limit) {
       throw PlatformError.tierLimitReached("properties", limit);
     }
 
-    const { data, error } = await supabase
-      .from("properties")
-      .insert({ ...body, user_id: user.id })
-      .select()
-      .single();
-
-    if (error) throw error;
+    const data = await propertyRepo.create({ ...body, user_id: user.id });
     res.status(201).json(data);
   } catch (err) {
     if (err instanceof z.ZodError) {
@@ -71,13 +62,7 @@ router.post("/", checkTierLimit("properties"), async (req, res, next) => {
 router.get("/", async (req, res, next) => {
   try {
     const user = req.dbUser!;
-    const { data, error } = await supabase
-      .from("properties")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
-
-    if (error) throw error;
+    const data = await propertyRepo.listByUser(user.id);
     res.json(data);
   } catch (err) {
     next(err);
@@ -88,14 +73,9 @@ router.get("/", async (req, res, next) => {
 router.get("/:id", async (req, res, next) => {
   try {
     const user = req.dbUser!;
-    const { data, error } = await supabase
-      .from("properties")
-      .select("*")
-      .eq("id", req.params.id)
-      .eq("user_id", user.id)
-      .single();
+    const data = await propertyRepo.findByIdAndUser(req.params.id, user.id);
 
-    if (error || !data) {
+    if (!data) {
       throw PlatformError.notFound("Property", req.params.id);
     }
     res.json(data);
@@ -110,15 +90,9 @@ router.patch("/:id", async (req, res, next) => {
     const user = req.dbUser!;
     const body = updatePropertySchema.parse(req.body);
 
-    const { data, error } = await supabase
-      .from("properties")
-      .update(body)
-      .eq("id", req.params.id)
-      .eq("user_id", user.id)
-      .select()
-      .single();
+    const data = await propertyRepo.update(req.params.id, user.id, body);
 
-    if (error || !data) {
+    if (!data) {
       throw PlatformError.notFound("Property", req.params.id);
     }
     res.json(data);
@@ -134,13 +108,7 @@ router.patch("/:id", async (req, res, next) => {
 router.delete("/:id", async (req, res, next) => {
   try {
     const user = req.dbUser!;
-    const { error } = await supabase
-      .from("properties")
-      .delete()
-      .eq("id", req.params.id)
-      .eq("user_id", user.id);
-
-    if (error) throw error;
+    await propertyRepo.remove(req.params.id, user.id);
     res.status(204).send();
   } catch (err) {
     next(err);

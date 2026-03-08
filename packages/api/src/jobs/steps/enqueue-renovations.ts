@@ -7,10 +7,11 @@
  * for each analysis photo.
  */
 
-import { supabase } from "../../config/supabase.js";
 import { enqueueRenovation } from "../../services/queue.service.js";
 import type { ImageQuality, ImageSize } from "@str-renovator/shared";
 import type { AnalysisPhotoRecord } from "./create-analysis-photos.js";
+import * as analysisRepo from "../../repositories/analysis.repository.js";
+import * as renovationRepo from "../../repositories/renovation.repository.js";
 
 export async function enqueueRenovations(
   analysisId: string,
@@ -19,27 +20,22 @@ export async function enqueueRenovations(
   quality: ImageQuality,
   size: ImageSize
 ): Promise<void> {
-  await supabase
-    .from("analyses")
-    .update({
-      status: "generating_images",
-      total_photos: analysisPhotoIds.length,
-    })
-    .eq("id", analysisId);
+  await analysisRepo.updateStatus(analysisId, "generating_images", {
+    total_photos: analysisPhotoIds.length,
+  });
 
   for (const ap of analysisPhotoIds) {
-    const { data: renovation, error: renError } = await supabase
-      .from("renovations")
-      .insert({
+    try {
+      const renovation = await renovationRepo.create({
         analysis_photo_id: ap.id,
         user_id: userId,
         iteration: 1,
         status: "pending",
-      })
-      .select("id")
-      .single();
+      });
 
-    if (renError || !renovation) continue;
-    await enqueueRenovation(renovation.id, ap.id, userId, quality, size);
+      await enqueueRenovation(renovation.id, ap.id, userId, quality, size);
+    } catch {
+      continue;
+    }
   }
 }

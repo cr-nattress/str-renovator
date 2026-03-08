@@ -6,8 +6,10 @@
  * Fetches property context and photos for an analysis job.
  */
 
-import { supabase } from "../../config/supabase.js";
 import type { DbPhoto, DbProperty } from "@str-renovator/shared";
+import * as analysisRepo from "../../repositories/analysis.repository.js";
+import * as propertyRepo from "../../repositories/property.repository.js";
+import * as photoRepo from "../../repositories/photo.repository.js";
 
 export interface AnalysisContext {
   typedPhotos: DbPhoto[];
@@ -18,28 +20,18 @@ export async function fetchAnalysisContext(
   analysisId: string,
   propertyId: string
 ): Promise<AnalysisContext> {
-  await supabase
-    .from("analyses")
-    .update({ status: "analyzing" })
-    .eq("id", analysisId);
+  await analysisRepo.updateStatus(analysisId, "analyzing");
 
-  const { data: property } = await supabase
-    .from("properties")
-    .select("*")
-    .eq("id", propertyId)
-    .single();
+  const property = await propertyRepo.findById(propertyId);
 
-  const { data: photos, error: photosError } = await supabase
-    .from("photos")
-    .select("*")
-    .eq("property_id", propertyId);
+  const photos = await photoRepo.listByProperty(propertyId);
 
-  if (photosError || !photos || photos.length === 0) {
+  if (!photos || photos.length === 0) {
     throw new Error("No photos found for property");
   }
 
   return {
-    typedPhotos: photos as DbPhoto[],
+    typedPhotos: photos,
     context: (property as DbProperty)?.context ?? undefined,
   };
 }

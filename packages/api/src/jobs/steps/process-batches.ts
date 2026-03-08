@@ -8,10 +8,10 @@
  */
 
 import pLimit from "p-limit";
-import { supabase } from "../../config/supabase.js";
 import * as batchService from "../../services/batch.service.js";
 import { CONCURRENCY, type DbPhoto } from "@str-renovator/shared";
 import type { Logger } from "pino";
+import * as analysisRepo from "../../repositories/analysis.repository.js";
 
 export interface BatchResult {
   completedCount: number;
@@ -30,10 +30,7 @@ export async function processBatches(
     CONCURRENCY.analysisBatchSize
   );
 
-  await supabase
-    .from("analyses")
-    .update({ total_batches: batches.length })
-    .eq("id", analysisId);
+  await analysisRepo.updateStatus(analysisId, "analyzing", { total_batches: batches.length });
 
   const limit = pLimit(CONCURRENCY.analysisBatchConcurrency);
   let completedCount = 0;
@@ -50,18 +47,10 @@ export async function processBatches(
             batches.length
           );
           completedCount++;
-          await supabase.rpc("increment_counter", {
-            p_table: "analyses",
-            p_column: "completed_batches",
-            p_id: analysisId,
-          });
+          await analysisRepo.incrementCounter("completed_batches", analysisId);
         } catch (err) {
           failedCount++;
-          await supabase.rpc("increment_counter", {
-            p_table: "analyses",
-            p_column: "failed_batches",
-            p_id: analysisId,
-          });
+          await analysisRepo.incrementCounter("failed_batches", analysisId);
           log.error(
             { batchIndex: batch.batch_index, err: err instanceof Error ? err.message : err },
             "batch failed"

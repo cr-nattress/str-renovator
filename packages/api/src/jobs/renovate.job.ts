@@ -1,8 +1,10 @@
 import type { Job } from "bullmq";
-import { supabase } from "../config/supabase.js";
 import * as renovationService from "../services/renovation.service.js";
 import * as storageService from "../services/storage.service.js";
 import type { ImageQuality, ImageSize } from "@str-renovator/shared";
+import * as renovationRepo from "../repositories/renovation.repository.js";
+import * as analysisPhotoRepo from "../repositories/analysis-photo.repository.js";
+import * as analysisRepo from "../repositories/analysis.repository.js";
 
 interface RenovationJobData {
   renovationId: string;
@@ -19,17 +21,10 @@ export async function processRenovationJob(
 
   try {
     // 1. Update renovation status to processing
-    await supabase
-      .from("renovations")
-      .update({ status: "processing" })
-      .eq("id", renovationId);
+    await renovationRepo.updateStatus(renovationId, "processing");
 
     // 2. Get analysis_photo + photo data
-    const { data: analysisPhoto } = await supabase
-      .from("analysis_photos")
-      .select("*, photos(*)")
-      .eq("id", analysisPhotoId)
-      .single();
+    const analysisPhoto = await analysisPhotoRepo.findByIdWithPhoto(analysisPhotoId);
 
     if (!analysisPhoto) throw new Error("Analysis photo not found");
 
@@ -37,11 +32,7 @@ export async function processRenovationJob(
     if (!photo) throw new Error("Original photo not found");
 
     // 3. Get renovation row for feedback_context
-    const { data: renovation } = await supabase
-      .from("renovations")
-      .select("*")
-      .eq("id", renovationId)
-      .single();
+    const renovation = await renovationRepo.findByIdAndUser(renovationId, userId);
 
     // 4. Download original photo buffer
     const buffer = await storageService.downloadPhoto(photo.storage_path);
@@ -73,51 +64,30 @@ export async function processRenovationJob(
     );
 
     // 8. Update renovation row with AI metadata
-    await supabase
-      .from("renovations")
-      .update({
-        storage_path: storagePath,
-        status: "completed",
-        prompt_version: metadata.promptVersion,
-        model: metadata.model,
-        tokens_used: metadata.tokensUsed,
-      })
-      .eq("id", renovationId);
+    await renovationRepo.updateStatus(renovationId, "completed", {
+      storage_path: storagePath,
+      prompt_version: metadata.promptVersion,
+      model: metadata.model,
+      tokens_used: metadata.tokensUsed,
+    });
 
     // 9. Update parent analysis completed_photos count
-    const { data: ap } = await supabase
-      .from("analysis_photos")
-      .select("analysis_id")
-      .eq("id", analysisPhotoId)
-      .single();
-
-    if (ap) {
+    if (analysisPhoto) {
       // Atomic increment to prevent race conditions with concurrent job completions
-      const { data: updated } = await supabase.rpc("increment_counter", {
-        p_table: "analyses",
-        p_column: "completed_photos",
-        p_id: ap.analysis_id,
-      });
+      const updated = await analysisRepo.incrementCounter("completed_photos", analysisPhoto.analysis_id);
 
-      const analysis = updated?.[0];
+      const analysis = (updated as any)?.[0];
       if (analysis && analysis.completed_photos >= analysis.total_photos) {
-        await supabase
-          .from("analyses")
-          .update({
-            status:
-              (analysis.failed_batches ?? 0) > 0
-                ? "partially_completed"
-                : "completed",
-          })
-          .eq("id", ap.analysis_id);
+        const finalStatus =
+          (analysis.failed_batches ?? 0) > 0
+            ? "partially_completed"
+            : "completed";
+        await analysisRepo.updateStatus(analysisPhoto.analysis_id, finalStatus);
       }
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
-    await supabase
-      .from("renovations")
-      .update({ status: "failed", error: message })
-      .eq("id", renovationId);
+    await renovationRepo.updateStatus(renovationId, "failed", { error: message });
     throw err;
   }
 }

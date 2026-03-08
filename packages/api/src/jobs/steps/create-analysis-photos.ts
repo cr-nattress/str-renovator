@@ -7,8 +7,9 @@
  * from successful batches. Uses filename matching with positional fallback.
  */
 
-import { supabase } from "../../config/supabase.js";
 import type { DbPhoto, PropertyAnalysis } from "@str-renovator/shared";
+import * as analysisBatchRepo from "../../repositories/analysis-batch.repository.js";
+import * as analysisPhotoRepo from "../../repositories/analysis-photo.repository.js";
 
 export interface AnalysisPhotoRecord {
   id: string;
@@ -20,19 +21,14 @@ export async function createAnalysisPhotos(
   analysis: PropertyAnalysis,
   typedPhotos: DbPhoto[]
 ): Promise<AnalysisPhotoRecord[]> {
-  const { data: successfulBatches } = await supabase
-    .from("analysis_batches")
-    .select("photo_ids, filenames")
-    .eq("analysis_id", analysisId)
-    .eq("status", "completed")
-    .order("batch_index");
+  const successfulBatches = await analysisBatchRepo.listSuccessful(analysisId);
 
   const successfulPhotoIds = new Set(
-    (successfulBatches ?? []).flatMap((b: any) => b.photo_ids as string[])
+    successfulBatches.flatMap((b) => b.photo_ids as string[])
   );
 
-  const allBatchFilenames: string[] = (successfulBatches ?? []).flatMap(
-    (b: any) => b.filenames as string[]
+  const allBatchFilenames: string[] = successfulBatches.flatMap(
+    (b) => b.filenames as string[]
   );
 
   const analysisPhotoIds: AnalysisPhotoRecord[] = [];
@@ -53,24 +49,23 @@ export async function createAnalysisPhotos(
     if (!matchedPhoto) continue;
     if (!successfulPhotoIds.has(matchedPhoto.id)) continue;
 
-    const { data: analysisPhoto, error: apError } = await supabase
-      .from("analysis_photos")
-      .insert({
+    try {
+      const analysisPhoto = await analysisPhotoRepo.create({
         analysis_id: analysisId,
         photo_id: matchedPhoto.id,
         room: photoAnalysis.room,
         strengths: photoAnalysis.strengths,
         renovations: photoAnalysis.renovations,
         priority: photoAnalysis.priority,
-      })
-      .select("id")
-      .single();
+      });
 
-    if (apError || !analysisPhoto) continue;
-    analysisPhotoIds.push({
-      id: analysisPhoto.id,
-      renovations: photoAnalysis.renovations,
-    });
+      analysisPhotoIds.push({
+        id: analysisPhoto.id,
+        renovations: photoAnalysis.renovations,
+      });
+    } catch {
+      continue;
+    }
   }
 
   return analysisPhotoIds;

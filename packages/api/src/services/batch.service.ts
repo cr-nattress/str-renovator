@@ -1,9 +1,9 @@
-import { supabase } from "../config/supabase.js";
 import { openai } from "../config/openai.js";
 import { env } from "../config/env.js";
 import { chatCompletionLimiter } from "../config/rate-limiter.js";
 import * as analysisService from "./analysis.service.js";
 import * as storageService from "./storage.service.js";
+import * as analysisBatchRepo from "../repositories/analysis-batch.repository.js";
 import {
   AGGREGATION_SYSTEM_PROMPT,
   AGGREGATION_PROMPT_VERSION,
@@ -41,16 +41,7 @@ export async function createBatchRecords(
     status: "pending" as const,
   }));
 
-  const { data, error } = await supabase
-    .from("analysis_batches")
-    .insert(batchRows)
-    .select();
-
-  if (error || !data) {
-    throw new Error(`Failed to create batch records: ${error?.message}`);
-  }
-
-  return data as DbAnalysisBatch[];
+  return analysisBatchRepo.insertMany(batchRows);
 }
 
 /** Processes a single batch: downloads photos, calls analysis, updates status */
@@ -61,10 +52,7 @@ export async function processSingleBatch(
   totalBatches: number
 ): Promise<AiResult<PropertyAnalysis>> {
   // Mark batch as processing
-  await supabase
-    .from("analysis_batches")
-    .update({ status: "processing" })
-    .eq("id", batch.id);
+  await analysisBatchRepo.updateStatus(batch.id, "processing");
 
   try {
     // Download photo buffers for this batch
@@ -107,24 +95,17 @@ export async function processSingleBatch(
     });
 
     // Mark batch as completed with AI metadata
-    await supabase
-      .from("analysis_batches")
-      .update({
-        status: "completed",
-        result_json: result as any,
-        prompt_version: metadata.promptVersion,
-        model: metadata.model,
-        tokens_used: metadata.tokensUsed,
-      })
-      .eq("id", batch.id);
+    await analysisBatchRepo.updateStatus(batch.id, "completed", {
+      result_json: result as any,
+      prompt_version: metadata.promptVersion,
+      model: metadata.model,
+      tokens_used: metadata.tokensUsed,
+    });
 
     return { data: result, metadata };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
-    await supabase
-      .from("analysis_batches")
-      .update({ status: "failed", error: message })
-      .eq("id", batch.id);
+    await analysisBatchRepo.updateStatus(batch.id, "failed", { error: message });
     throw err;
   }
 }
@@ -133,16 +114,7 @@ export async function processSingleBatch(
 export async function aggregateBatchResults(
   analysisId: string
 ): Promise<AiResult<PropertyAnalysis>> {
-  const { data: batches, error } = await supabase
-    .from("analysis_batches")
-    .select("*")
-    .eq("analysis_id", analysisId)
-    .eq("status", "completed")
-    .order("batch_index");
-
-  if (error || !batches || batches.length === 0) {
-    throw new Error("No completed batches to aggregate");
-  }
+  const batches = await analysisBatchRepo.listCompleted(analysisId);
 
   const results = batches.map(
     (b: any) => b.result_json as PropertyAnalysis

@@ -3,7 +3,8 @@ import { z } from "zod";
 import { checkTierLimit } from "../middleware/tier.js";
 import { PlatformError } from "@str-renovator/shared";
 import { enqueueScrape, enqueueLocationResearch } from "../services/queue.service.js";
-import { supabase } from "../config/supabase.js";
+import * as propertyRepo from "../repositories/property.repository.js";
+import * as scrapeJobRepo from "../repositories/scrape-job.repository.js";
 
 const router = Router();
 
@@ -22,34 +23,21 @@ router.post(
       const body = scrapeSchema.parse(req.body);
 
       // Verify ownership
-      const { data: property } = await supabase
-        .from("properties")
-        .select("id")
-        .eq("id", propertyId)
-        .eq("user_id", user.id)
-        .single();
+      const property = await propertyRepo.findByIdWithColumns(propertyId, user.id, "id");
 
       if (!property) {
         throw PlatformError.notFound("Property", propertyId);
       }
 
       // Create scrape_jobs row
-      const { data: scrapeJob, error } = await supabase
-        .from("scrape_jobs")
-        .insert({
-          property_id: propertyId,
-          user_id: user.id,
-          listing_url: body.listing_url,
-          status: "pending",
-        })
-        .select()
-        .single();
+      const scrapeJob = await scrapeJobRepo.create({
+        property_id: propertyId,
+        user_id: user.id,
+        listing_url: body.listing_url,
+        status: "pending",
+      });
 
-      if (error || !scrapeJob) {
-        throw new PlatformError({ code: "INTERNAL_ERROR", message: "Failed to create scrape job" });
-      }
-
-      await enqueueScrape(scrapeJob.id, propertyId, user.id, body.listing_url);
+      await enqueueScrape(scrapeJob.id as string, propertyId, user.id, body.listing_url);
 
       res.status(202).json({ scrape_job_id: scrapeJob.id });
     } catch (err) {
@@ -67,14 +55,9 @@ router.get("/scrape-jobs/:id", async (req, res, next) => {
     const user = req.dbUser!;
     const jobId = req.params.id as string;
 
-    const { data: job, error } = await supabase
-      .from("scrape_jobs")
-      .select("*")
-      .eq("id", jobId)
-      .eq("user_id", user.id)
-      .single();
+    const job = await scrapeJobRepo.findByIdAndUser(jobId, user.id);
 
-    if (error || !job) {
+    if (!job) {
       throw PlatformError.notFound("Scrape job", jobId);
     }
 
@@ -90,19 +73,7 @@ router.get("/properties/:propertyId/scrape-jobs", async (req, res, next) => {
     const user = req.dbUser!;
     const propertyId = req.params.propertyId as string;
 
-    const { data: jobs, error } = await supabase
-      .from("scrape_jobs")
-      .select("*")
-      .eq("property_id", propertyId)
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(10);
-
-    if (error) {
-      res.status(500).json({ error: "Failed to fetch scrape jobs" });
-      return;
-    }
-
+    const jobs = await scrapeJobRepo.listByProperty(propertyId, user.id);
     res.json(jobs);
   } catch (err) {
     next(err);
@@ -118,12 +89,7 @@ router.post(
       const propertyId = req.params.propertyId as string;
 
       // Verify ownership and check city/state
-      const { data: property } = await supabase
-        .from("properties")
-        .select("id, city, state")
-        .eq("id", propertyId)
-        .eq("user_id", user.id)
-        .single();
+      const property = await propertyRepo.findByIdWithColumns(propertyId, user.id, "id, city, state");
 
       if (!property) {
         throw PlatformError.notFound("Property", propertyId);
