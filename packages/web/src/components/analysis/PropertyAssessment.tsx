@@ -1,15 +1,27 @@
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { ConfidenceIndicator } from "../ai/ConfidenceIndicator";
 import { ReasoningExpander } from "../ai/ReasoningExpander";
+import { EditableText } from "../ai/EditableText";
 
 interface Props {
   assessment: string;
   styleDirection: string;
   confidence?: number;
   reasoning?: string;
+  onUpdateAssessment?: (value: string) => void;
+  onUpdateStyleDirection?: (value: string) => void;
+  isSaving?: boolean;
 }
 
-export function PropertyAssessment({ assessment, styleDirection, confidence, reasoning }: Props) {
+export function PropertyAssessment({
+  assessment,
+  styleDirection,
+  confidence,
+  reasoning,
+  onUpdateAssessment,
+  onUpdateStyleDirection,
+  isSaving,
+}: Props) {
   return (
     <Card>
       <CardHeader>
@@ -21,9 +33,18 @@ export function PropertyAssessment({ assessment, styleDirection, confidence, rea
         </div>
       </CardHeader>
       <CardContent>
-        <p className="text-muted-foreground text-sm leading-relaxed whitespace-pre-wrap">
-          {assessment}
-        </p>
+        {onUpdateAssessment ? (
+          <EditableText
+            value={assessment}
+            onSave={onUpdateAssessment}
+            isSaving={isSaving}
+            className="text-muted-foreground"
+          />
+        ) : (
+          <p className="text-muted-foreground text-sm leading-relaxed whitespace-pre-wrap">
+            {assessment}
+          </p>
+        )}
 
         {reasoning && <ReasoningExpander reasoning={reasoning} />}
 
@@ -32,9 +53,18 @@ export function PropertyAssessment({ assessment, styleDirection, confidence, rea
             <h4 className="text-sm font-semibold mt-4 mb-2">
               Style Direction
             </h4>
-            <p className="text-muted-foreground text-sm leading-relaxed whitespace-pre-wrap">
-              {styleDirection}
-            </p>
+            {onUpdateStyleDirection ? (
+              <EditableText
+                value={styleDirection}
+                onSave={onUpdateStyleDirection}
+                isSaving={isSaving}
+                className="text-muted-foreground"
+              />
+            ) : (
+              <p className="text-muted-foreground text-sm leading-relaxed whitespace-pre-wrap">
+                {styleDirection}
+              </p>
+            )}
           </>
         )}
       </CardContent>

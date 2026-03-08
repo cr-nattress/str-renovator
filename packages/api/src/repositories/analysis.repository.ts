@@ -100,6 +100,20 @@ export async function updateStatus(
   if (error) throw error;
 }
 
+export async function updateFields(
+  id: string,
+  fields: Partial<Pick<DbAnalysis, "property_assessment" | "style_direction">>
+): Promise<DbAnalysis> {
+  const { data, error } = await supabase
+    .from("analyses")
+    .update(fields)
+    .eq("id", id)
+    .select()
+    .single();
+  if (error || !data) throw error ?? new Error("Failed to update analysis");
+  return data as DbAnalysis;
+}
+
 export async function archive(id: string): Promise<void> {
   const { error } = await supabase
     .from("analyses")

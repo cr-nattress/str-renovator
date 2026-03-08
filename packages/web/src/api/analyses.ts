@@ -43,6 +43,23 @@ export function useAnalysis(id: string) {
   });
 }
 
+export function useUpdateAnalysis(analysisId: string) {
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (fields: { property_assessment?: string; style_direction?: string }) => {
+      const token = await getToken();
+      return apiFetch<DbAnalysis>(`/api/v1/analyses/${analysisId}`, token!, {
+        method: "PATCH",
+        body: JSON.stringify(fields),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["analysis", analysisId] });
+    },
+  });
+}
+
 export function useArchiveAnalysis(propertyId: string) {
   const { getToken } = useAuth();
   const queryClient = useQueryClient();

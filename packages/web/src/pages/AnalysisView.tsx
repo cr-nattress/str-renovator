@@ -1,5 +1,5 @@
 import { useParams, Link } from "react-router-dom";
-import { useAnalysis } from "../api/analyses";
+import { useAnalysis, useUpdateAnalysis } from "../api/analyses";
 import { useRealtimeUpdates } from "../hooks/useRealtimeUpdates";
 import { AnalysisProgress } from "../components/analysis/AnalysisProgress";
 import { PropertyAssessment } from "../components/analysis/PropertyAssessment";
@@ -11,6 +11,7 @@ import { AnalysisViewSkeleton } from "../components/skeletons";
 export function AnalysisView() {
   const { id } = useParams<{ id: string }>();
   const { data: analysis, isLoading } = useAnalysis(id!);
+  const updateAnalysis = useUpdateAnalysis(id!);
   const realtime = useRealtimeUpdates(id!);
   const { data: journeyItems } = useJourneyItems(analysis?.property_id ?? "");
 
@@ -80,6 +81,9 @@ export function AnalysisView() {
               styleDirection={analysis.style_direction ?? ""}
               confidence={analysis.raw_json?.confidence}
               reasoning={analysis.raw_json?.reasoning}
+              onUpdateAssessment={(v) => updateAnalysis.mutate({ property_assessment: v })}
+              onUpdateStyleDirection={(v) => updateAnalysis.mutate({ style_direction: v })}
+              isSaving={updateAnalysis.isPending}
             />
           )}
 

@@ -210,6 +210,32 @@ router.get("/analyses/:id/stream", async (req, res, next) => {
   }
 });
 
+// PATCH /analyses/:id - Update editable AI-generated fields
+router.patch("/analyses/:id", async (req, res, next) => {
+  try {
+    const user = req.dbUser!;
+
+    const analysis = await analysisRepo.findOwnershipCheck(req.params.id, user.id);
+    if (!analysis) {
+      throw PlatformError.notFound("Analysis", req.params.id);
+    }
+
+    const { property_assessment, style_direction } = req.body;
+    const fields: Record<string, string> = {};
+    if (typeof property_assessment === "string") fields.property_assessment = property_assessment;
+    if (typeof style_direction === "string") fields.style_direction = style_direction;
+
+    if (Object.keys(fields).length === 0) {
+      throw PlatformError.validationError("No valid fields to update");
+    }
+
+    const updated = await analysisRepo.updateFields(req.params.id, fields);
+    res.json(updated);
+  } catch (err) {
+    next(err);
+  }
+});
+
 // PATCH /analyses/:id/archive - Soft-delete (archive) an analysis
 router.patch("/analyses/:id/archive", async (req, res, next) => {
   try {
