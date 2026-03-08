@@ -90,6 +90,26 @@ test.describe("03 — Property Detail", () => {
     await screenshot.take(page, "overview-tab-form");
   });
 
+  test("Overview tab shows address fields", async ({
+    authedPage: page,
+    screenshot,
+    seed,
+  }) => {
+    await page.goto(`/properties/${seed.propertyId}`);
+    await expect(page.getByText(seed.propertyName)).toBeVisible({ timeout: 10_000 });
+
+    // Switch to Overview tab
+    await page.getByRole("button", { name: "Overview" }).click();
+
+    // Should show address fields
+    await expect(page.getByPlaceholder("123 Main Street")).toBeVisible();
+    await expect(page.getByPlaceholder("City")).toBeVisible();
+    await expect(page.getByPlaceholder("State")).toBeVisible();
+    await expect(page.getByPlaceholder("ZIP")).toBeVisible();
+
+    await screenshot.take(page, "overview-tab-address-fields");
+  });
+
   test("Design Journey link is present", async ({
     authedPage: page,
     screenshot,

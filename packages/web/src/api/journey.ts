@@ -10,9 +10,28 @@ import type {
 export interface JourneyItemWithImage extends DbDesignJourneyItem {
   image_url: string | null;
 }
+
+export interface JourneyItemDetail extends JourneyItemWithImage {
+  source_photo_url: string | null;
+}
 import { apiFetch } from "./client";
 
 const ACTIVE_STATUSES: ActionImageStatus[] = ["pending", "processing"];
+
+export function useJourneyItem(id: string) {
+  const { getToken } = useAuth();
+  return useQuery({
+    queryKey: ["journey-item", id],
+    queryFn: async () => {
+      const token = await getToken();
+      return apiFetch<JourneyItemDetail>(
+        `/api/v1/journey/${id}`,
+        token!,
+      );
+    },
+    enabled: !!id,
+  });
+}
 
 export function useJourneyItems(propertyId: string) {
   const { getToken } = useAuth();
@@ -34,6 +53,7 @@ export function useJourneyItems(propertyId: string) {
       );
       return hasActive ? 5000 : false;
     },
+    refetchIntervalInBackground: false,
   });
 }
 
@@ -100,8 +120,9 @@ export function useUpdateJourneyItem(propertyId: string) {
         },
       );
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["journey", propertyId] });
+      queryClient.invalidateQueries({ queryKey: ["journey-item", variables.id] });
     },
   });
 }

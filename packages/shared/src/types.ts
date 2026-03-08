@@ -23,6 +23,19 @@ export interface PropertyAnalysis {
   action_plan: ActionItem[];
 }
 
+// ── AI Metadata ─────────────────────────────────────────────────────
+
+export interface AiMetadata {
+  model: string;
+  tokensUsed: number;
+  promptVersion: string;
+}
+
+export interface AiResult<T> {
+  data: T;
+  metadata: AiMetadata;
+}
+
 // ── Database Row Types ──────────────────────────────────────────────
 
 export type Tier = "free" | "pro" | "business";
@@ -71,6 +84,15 @@ export interface DbProperty {
   description: string | null;
   listing_url: string | null;
   context: string | null;
+  address_line1: string | null;
+  address_line2: string | null;
+  city: string | null;
+  state: string | null;
+  zip_code: string | null;
+  country: string | null;
+  scraped_data: Record<string, unknown> | null;
+  location_profile: Record<string, unknown> | null;
+  property_profile: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
 }
@@ -83,6 +105,10 @@ export interface DbPhoto {
   storage_path: string;
   mime_type: string;
   source: PhotoSource;
+  display_name: string | null;
+  description: string | null;
+  tags: string[];
+  constraints: string[];
   created_at: string;
 }
 
@@ -101,6 +127,9 @@ export interface DbAnalysis {
   completed_batches: number;
   failed_batches: number;
   is_active: boolean;
+  prompt_version: string | null;
+  model: string | null;
+  tokens_used: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -114,6 +143,9 @@ export interface DbAnalysisBatch {
   status: "pending" | "processing" | "completed" | "failed";
   result_json: PropertyAnalysis | null;
   error: string | null;
+  prompt_version: string | null;
+  model: string | null;
+  tokens_used: number | null;
   created_at: string;
 }
 
@@ -139,6 +171,9 @@ export interface DbRenovation {
   feedback_context: string | null;
   status: "pending" | "processing" | "completed" | "failed";
   error: string | null;
+  prompt_version: string | null;
+  model: string | null;
+  tokens_used: number | null;
   created_at: string;
 }
 
@@ -168,6 +203,9 @@ export interface DbDesignJourneyItem {
   image_storage_path: string | null;
   image_status: ActionImageStatus;
   source_photo_id: string | null;
+  prompt_version: string | null;
+  model: string | null;
+  tokens_used: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -179,6 +217,12 @@ export interface CreatePropertyDto {
   description?: string;
   listing_url?: string;
   context?: string;
+  address_line1?: string;
+  address_line2?: string;
+  city?: string;
+  state?: string;
+  zip_code?: string;
+  country?: string;
 }
 
 export interface UpdatePropertyDto {
@@ -186,6 +230,12 @@ export interface UpdatePropertyDto {
   description?: string;
   listing_url?: string;
   context?: string;
+  address_line1?: string;
+  address_line2?: string;
+  city?: string;
+  state?: string;
+  zip_code?: string;
+  country?: string;
 }
 
 export interface CreateAnalysisDto {
@@ -202,6 +252,21 @@ export interface UpdateJourneyItemDto {
   status?: JourneyStatus;
   actual_cost?: number;
   notes?: string;
+}
+
+export interface UpdatePhotoMetadataDto {
+  display_name?: string | null;
+  description?: string | null;
+  tags?: string[];
+  constraints?: string[];
+}
+
+export interface PhotoMetadataBlock {
+  filename: string;
+  display_name?: string;
+  description?: string;
+  tags?: string[];
+  constraints?: string[];
 }
 
 export interface CreateJourneyItemDto {

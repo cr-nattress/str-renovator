@@ -1,7 +1,8 @@
 import { Router } from "express";
 import { z } from "zod";
 import { checkTierLimit } from "../middleware/tier.js";
-import { enqueueScrape } from "../services/queue.service.js";
+import { PlatformError } from "@str-renovator/shared";
+import { enqueueScrape, enqueueLocationResearch } from "../services/queue.service.js";
 import { supabase } from "../config/supabase.js";
 
 const router = Router();
@@ -29,8 +30,7 @@ router.post(
         .single();
 
       if (!property) {
-        res.status(404).json({ error: "Property not found" });
-        return;
+        throw PlatformError.notFound("Property", propertyId);
       }
 
       // Create scrape_jobs row
@@ -46,8 +46,7 @@ router.post(
         .single();
 
       if (error || !scrapeJob) {
-        res.status(500).json({ error: "Failed to create scrape job" });
-        return;
+        throw new PlatformError({ code: "INTERNAL_ERROR", message: "Failed to create scrape job" });
       }
 
       await enqueueScrape(scrapeJob.id, propertyId, user.id, body.listing_url);
@@ -55,8 +54,7 @@ router.post(
       res.status(202).json({ scrape_job_id: scrapeJob.id });
     } catch (err) {
       if (err instanceof z.ZodError) {
-        res.status(400).json({ error: err.errors });
-        return;
+        throw PlatformError.validationError(err.errors.map(e => e.message).join(", "));
       }
       next(err);
     }
@@ -77,8 +75,7 @@ router.get("/scrape-jobs/:id", async (req, res, next) => {
       .single();
 
     if (error || !job) {
-      res.status(404).json({ error: "Scrape job not found" });
-      return;
+      throw PlatformError.notFound("Scrape job", jobId);
     }
 
     res.json(job);
@@ -111,5 +108,38 @@ router.get("/properties/:propertyId/scrape-jobs", async (req, res, next) => {
     next(err);
   }
 });
+
+// POST /properties/:propertyId/research-location - Start location research
+router.post(
+  "/properties/:propertyId/research-location",
+  async (req, res, next) => {
+    try {
+      const user = req.dbUser!;
+      const propertyId = req.params.propertyId as string;
+
+      // Verify ownership and check city/state
+      const { data: property } = await supabase
+        .from("properties")
+        .select("id, city, state")
+        .eq("id", propertyId)
+        .eq("user_id", user.id)
+        .single();
+
+      if (!property) {
+        throw PlatformError.notFound("Property", propertyId);
+      }
+
+      if (!property.city && !property.state) {
+        throw PlatformError.validationError("Property must have a city or state to research location");
+      }
+
+      await enqueueLocationResearch(propertyId, user.id);
+
+      res.status(202).json({ status: "queued" });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
 
 export default router;

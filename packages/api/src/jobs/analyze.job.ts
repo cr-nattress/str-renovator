@@ -1,6 +1,7 @@
 import type { Job } from "bullmq";
 import pLimit from "p-limit";
 import { supabase } from "../config/supabase.js";
+import { createChildLogger } from "../config/logger.js";
 import * as batchService from "../services/batch.service.js";
 import * as reportService from "../services/report.service.js";
 import { enqueueRenovation, enqueueActionImage } from "../services/queue.service.js";
@@ -24,6 +25,7 @@ export async function processAnalysisJob(
   job: Job<AnalysisJobData>
 ): Promise<void> {
   const { analysisId, propertyId, userId, quality, size } = job.data;
+  const log = createChildLogger({ jobType: "analysis", analysisId, propertyId });
 
   try {
     // 1. Update status to analyzing
@@ -81,19 +83,21 @@ export async function processAnalysisJob(
               batches.length
             );
             completedCount++;
-            await supabase
-              .from("analyses")
-              .update({ completed_batches: completedCount })
-              .eq("id", analysisId);
+            await supabase.rpc("increment_counter", {
+              p_table: "analyses",
+              p_column: "completed_batches",
+              p_id: analysisId,
+            });
           } catch (err) {
             failedCount++;
-            await supabase
-              .from("analyses")
-              .update({ failed_batches: failedCount })
-              .eq("id", analysisId);
-            console.error(
-              `Batch ${batch.batch_index} failed:`,
-              err instanceof Error ? err.message : err
+            await supabase.rpc("increment_counter", {
+              p_table: "analyses",
+              p_column: "failed_batches",
+              p_id: analysisId,
+            });
+            log.error(
+              { batchIndex: batch.batch_index, err: err instanceof Error ? err.message : err },
+              "batch failed"
             );
           }
         })
@@ -114,35 +118,55 @@ export async function processAnalysisJob(
       .eq("id", analysisId);
 
     // 8. Aggregate batch results
-    const analysis = await batchService.aggregateBatchResults(analysisId);
+    const { data: analysis, metadata: aggregationMeta } = await batchService.aggregateBatchResults(analysisId);
 
-    // 9. Save merged results
+    // 9. Save merged results with AI metadata
     await supabase
       .from("analyses")
       .update({
         property_assessment: analysis.property_assessment,
         style_direction: analysis.style_direction,
         raw_json: analysis,
+        prompt_version: aggregationMeta.promptVersion,
+        model: aggregationMeta.model,
+        tokens_used: aggregationMeta.tokensUsed,
       })
       .eq("id", analysisId);
 
     // 10. Determine which photo IDs were in successful batches
     const { data: successfulBatches } = await supabase
       .from("analysis_batches")
-      .select("photo_ids")
+      .select("photo_ids, filenames")
       .eq("analysis_id", analysisId)
-      .eq("status", "completed");
+      .eq("status", "completed")
+      .order("batch_index");
 
     const successfulPhotoIds = new Set(
       (successfulBatches ?? []).flatMap((b: any) => b.photo_ids as string[])
     );
 
+    // Build ordered list of all filenames across successful batches for index-based fallback
+    const allBatchFilenames: string[] = (successfulBatches ?? []).flatMap(
+      (b: any) => b.filenames as string[]
+    );
+
     // 11. Create analysis_photos rows from merged result (only for successful batch photos)
     const analysisPhotoIds: { id: string; renovations: string }[] = [];
-    for (const photoAnalysis of analysis.photos) {
-      const matchedPhoto = typedPhotos.find(
+    for (let i = 0; i < analysis.photos.length; i++) {
+      const photoAnalysis = analysis.photos[i];
+
+      // Try exact filename match first
+      let matchedPhoto = typedPhotos.find(
         (p) => p.filename === photoAnalysis.filename
       );
+
+      // Fallback: match by position (AI may have re-numbered filenames)
+      if (!matchedPhoto && i < allBatchFilenames.length) {
+        matchedPhoto = typedPhotos.find(
+          (p) => p.filename === allBatchFilenames[i]
+        );
+      }
+
       if (!matchedPhoto) continue;
       if (!successfulPhotoIds.has(matchedPhoto.id)) continue;
 
@@ -181,8 +205,18 @@ export async function processAnalysisJob(
     const firstPhotoId = typedPhotos[0]?.id ?? null;
     const styleDirection = analysis.style_direction ?? "";
 
+    // Dedup: query existing journey items for this property
+    const { data: existingItems } = await supabase
+      .from("design_journey_items")
+      .select("id, priority, title, image_status, image_storage_path, source_photo_id")
+      .eq("property_id", propertyId);
+
+    const existingByKey = new Map(
+      (existingItems ?? []).map((i) => [`${i.priority}::${i.title}`, i])
+    );
+
     for (const action of analysis.action_plan) {
-      // Match rooms_affected to find a source photo
+      // Resolve sourcePhotoId before dedup check so both paths can use it
       let sourcePhotoId: string | null = null;
       for (const room of action.rooms_affected) {
         const matched = roomToPhotoId.get(room.toLowerCase());
@@ -191,12 +225,56 @@ export async function processAnalysisJob(
           break;
         }
       }
-      // Fallback to first available photo
       if (!sourcePhotoId) sourcePhotoId = firstPhotoId;
 
+      const dedupKey = `${action.priority}::${action.item}`;
+      const existing = existingByKey.get(dedupKey);
+
+      if (existing) {
+        // Completed image exists — skip entirely
+        if (existing.image_status === "completed" && existing.image_storage_path) {
+          continue;
+        }
+
+        // Already in flight — skip
+        if (existing.image_status === "pending" || existing.image_status === "processing") {
+          continue;
+        }
+
+        // Failed or skipped — update and re-enqueue if source photo now available
+        if (existing.image_status === "failed" || existing.image_status === "skipped") {
+          const updates: Record<string, unknown> = { analysis_id: analysisId };
+          if (sourcePhotoId) {
+            updates.source_photo_id = sourcePhotoId;
+            updates.image_status = "pending";
+          }
+          await supabase
+            .from("design_journey_items")
+            .update(updates)
+            .eq("id", existing.id);
+
+          if (sourcePhotoId) {
+            const matchedRoom = action.rooms_affected[0] ?? "Room";
+            await enqueueActionImage(
+              existing.id,
+              sourcePhotoId,
+              userId,
+              propertyId,
+              action.item,
+              matchedRoom,
+              styleDirection,
+              quality,
+              size
+            );
+          }
+          continue;
+        }
+      }
+
+      // No existing match — insert new item
       const imageStatus = sourcePhotoId ? "pending" : "skipped";
 
-      const { data: journeyItem } = await supabase
+      const { data: journeyItem, error: jiError } = await supabase
         .from("design_journey_items")
         .insert({
           property_id: propertyId,
@@ -213,7 +291,12 @@ export async function processAnalysisJob(
         .select("id")
         .single();
 
-      if (journeyItem && sourcePhotoId) {
+      if (jiError || !journeyItem) {
+        log.error({ item: action.item, err: jiError?.message ?? "no data returned" }, "failed to create journey item");
+        continue;
+      }
+
+      if (sourcePhotoId) {
         const matchedRoom = action.rooms_affected[0] ?? "Room";
         await enqueueActionImage(
           journeyItem.id,
@@ -229,10 +312,13 @@ export async function processAnalysisJob(
       }
     }
 
-    // 13. Status → generating_images
+    // 13. Status → generating_images, update total_photos to actual analysis_photo count
     await supabase
       .from("analyses")
-      .update({ status: "generating_images" })
+      .update({
+        status: "generating_images",
+        total_photos: analysisPhotoIds.length,
+      })
       .eq("id", analysisId);
 
     // 14. Enqueue renovation jobs for each analysis_photo
@@ -254,28 +340,31 @@ export async function processAnalysisJob(
 
     // 15. Generate reports for each analysis_photo
     for (const ap of analysisPhotoIds) {
-      const report = await reportService.generateTextReport(ap.renovations);
+      const { data: report } = await reportService.generateTextReport(ap.renovations);
       await supabase
         .from("analysis_photos")
         .update({ report })
         .eq("id", ap.id);
     }
 
-    // 16. Final status — partially_completed if any batches failed
+    // 16. Final status
     if (analysisPhotoIds.length === 0) {
+      // No analysis photos created — nothing to renovate, so complete now
       const finalStatus = failedCount > 0 ? "partially_completed" : "completed";
       await supabase
         .from("analyses")
         .update({ status: finalStatus })
         .eq("id", analysisId);
     } else if (failedCount > 0) {
-      // Will be set to partially_completed once all renovations finish
-      // Store a marker so the renovation completion handler knows
+      // Renovation jobs are running; store failure marker so the renovation
+      // completion handler can set partially_completed instead of completed
       await supabase
         .from("analyses")
         .update({ failed_batches: failedCount })
         .eq("id", analysisId);
     }
+    // When analysisPhotoIds.length > 0 and failedCount === 0, status stays
+    // at generating_images — renovate.job.ts sets completed once all finish
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     await supabase

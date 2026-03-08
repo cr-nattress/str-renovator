@@ -6,7 +6,7 @@ export interface ScrapeJob {
   id: string;
   property_id: string;
   listing_url: string;
-  status: "pending" | "scraping" | "downloading" | "completed" | "failed";
+  status: "pending" | "scraping" | "extracting_data" | "downloading" | "researching_location" | "synthesizing" | "completed" | "failed";
   total_photos: number;
   downloaded_photos: number;
   error: string | null;
@@ -64,6 +64,20 @@ export function useStartScrape(propertyId: string) {
       queryClient.invalidateQueries({
         queryKey: ["scrape-jobs", propertyId],
       });
+    },
+  });
+}
+
+export function useResearchLocation(propertyId: string) {
+  const { getToken } = useAuth();
+  return useMutation({
+    mutationFn: async () => {
+      const token = await getToken();
+      return apiFetch<{ status: string }>(
+        `/api/v1/properties/${propertyId}/research-location`,
+        token!,
+        { method: "POST" }
+      );
     },
   });
 }

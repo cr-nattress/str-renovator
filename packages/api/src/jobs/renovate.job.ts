@@ -53,7 +53,7 @@ export async function processRenovationJob(
     }
 
     // 6. Call renovation service
-    const base64 = await renovationService.editImage({
+    const { data: base64, metadata } = await renovationService.editImage({
       buffer,
       filename: photo.filename,
       prompt,
@@ -72,10 +72,16 @@ export async function processRenovationJob(
       "image/png"
     );
 
-    // 8. Update renovation row
+    // 8. Update renovation row with AI metadata
     await supabase
       .from("renovations")
-      .update({ storage_path: storagePath, status: "completed" })
+      .update({
+        storage_path: storagePath,
+        status: "completed",
+        prompt_version: metadata.promptVersion,
+        model: metadata.model,
+        tokens_used: metadata.tokensUsed,
+      })
       .eq("id", renovationId);
 
     // 9. Update parent analysis completed_photos count
@@ -86,24 +92,23 @@ export async function processRenovationJob(
       .single();
 
     if (ap) {
-      // Increment completed_photos
-      const { data: analysis } = await supabase
-        .from("analyses")
-        .select("completed_photos, total_photos")
-        .eq("id", ap.analysis_id)
-        .single();
+      // Atomic increment to prevent race conditions with concurrent job completions
+      const { data: updated } = await supabase.rpc("increment_counter", {
+        p_table: "analyses",
+        p_column: "completed_photos",
+        p_id: ap.analysis_id,
+      });
 
-      if (analysis) {
-        const newCount = (analysis.completed_photos ?? 0) + 1;
-        const updateData: Record<string, any> = {
-          completed_photos: newCount,
-        };
-        if (newCount >= analysis.total_photos) {
-          updateData.status = "completed";
-        }
+      const analysis = updated?.[0];
+      if (analysis && analysis.completed_photos >= analysis.total_photos) {
         await supabase
           .from("analyses")
-          .update(updateData)
+          .update({
+            status:
+              (analysis.failed_batches ?? 0) > 0
+                ? "partially_completed"
+                : "completed",
+          })
           .eq("id", ap.analysis_id);
       }
     }

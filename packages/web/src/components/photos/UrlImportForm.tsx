@@ -30,6 +30,7 @@ export function UrlImportForm({ propertyId, onSuccess }: Props) {
     setActiveScrapeJobId(null);
     // Refresh photos list
     queryClient.invalidateQueries({ queryKey: ["photos", propertyId] });
+    queryClient.invalidateQueries({ queryKey: ["properties", propertyId] });
     onSuccess();
   };
 

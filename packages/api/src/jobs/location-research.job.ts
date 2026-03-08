@@ -1,0 +1,54 @@
+import type { Job } from "bullmq";
+import { supabase } from "../config/supabase.js";
+import { createChildLogger } from "../config/logger.js";
+import { researchLocation } from "../services/location-research.service.js";
+
+interface LocationResearchJobData {
+  propertyId: string;
+  userId: string;
+}
+
+export async function processLocationResearchJob(
+  job: Job<LocationResearchJobData>
+): Promise<void> {
+  const { propertyId, userId } = job.data;
+  const log = createChildLogger({ jobType: "location-research", propertyId });
+
+  try {
+    const { data: property } = await supabase
+      .from("properties")
+      .select("name, address_line1, address_line2, city, state, zip_code, country, scraped_data")
+      .eq("id", propertyId)
+      .eq("user_id", userId)
+      .single();
+
+    if (!property) {
+      throw new Error("Property not found");
+    }
+
+    const scrapedData = property.scraped_data as Record<string, unknown> | null;
+
+    const { data: locationProfile, metadata } = await researchLocation({
+      address_line1: property.address_line1 ?? undefined,
+      address_line2: property.address_line2 ?? undefined,
+      city: property.city ?? undefined,
+      state: property.state ?? undefined,
+      zip_code: property.zip_code ?? undefined,
+      country: property.country ?? undefined,
+      property_name: property.name ?? undefined,
+      property_type: (scrapedData?.property_type as string) ?? undefined,
+    });
+    log.info({ model: metadata.model, tokensUsed: metadata.tokensUsed, promptVersion: metadata.promptVersion }, "location research AI metadata");
+
+    await supabase
+      .from("properties")
+      .update({ location_profile: locationProfile })
+      .eq("id", propertyId);
+
+    log.info("job completed");
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    log.error({ err: message }, "job failed");
+    throw err;
+  }
+}

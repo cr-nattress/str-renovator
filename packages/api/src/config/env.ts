@@ -3,7 +3,10 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-dotenv.config({ path: resolve(__dirname, "../../.env") });
+
+if (process.env.NODE_ENV !== "production") {
+  dotenv.config({ path: resolve(__dirname, "../../.env") });
+}
 
 function required(key: string): string {
   const value = process.env[key];
@@ -29,4 +32,6 @@ export const env = {
   redisUrl: process.env.REDIS_URL ?? "redis://localhost:6379",
 
   frontendUrl: process.env.FRONTEND_URL ?? "http://localhost:5173",
+
+  debugMode: process.env.DEBUG_MODE === "true",
 } as const;

@@ -1,20 +1,28 @@
 import { useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useProperty, useUpdateProperty } from "../api/properties";
-import { usePhotos, useUploadPhotos, useDeletePhoto } from "../api/photos";
-import { useAnalyses, useCreateAnalysis } from "../api/analyses";
+import { usePhotos, useUploadPhotos, useDeletePhoto, useUpdatePhotoMetadata } from "../api/photos";
+import { useAnalyses, useCreateAnalysis, useArchiveAnalysis } from "../api/analyses";
 import { PropertyForm } from "../components/properties/PropertyForm";
+import { ScrapedDataDisplay } from "../components/properties/ScrapedDataDisplay";
+import { LocationProfileDisplay } from "../components/properties/LocationProfileDisplay";
+import { PropertyProfileDisplay } from "../components/properties/PropertyProfileDisplay";
 import { PhotoUploader } from "../components/photos/PhotoUploader";
 import { PhotoGrid } from "../components/photos/PhotoGrid";
+import { PhotoDetailModal } from "../components/photos/PhotoDetailModal";
 import { UrlImportForm } from "../components/photos/UrlImportForm";
-import type { AnalysisStatus } from "@str-renovator/shared";
+import { useResearchLocation } from "../api/scrape";
+import { useQueryClient } from "@tanstack/react-query";
+import type { AnalysisStatus, DbPhoto } from "@str-renovator/shared";
 
 const STATUS_STYLES: Record<AnalysisStatus, string> = {
   pending: "bg-gray-100 text-gray-800",
   analyzing: "bg-blue-100 text-blue-800",
+  aggregating: "bg-cyan-100 text-cyan-800",
   generating_images: "bg-purple-100 text-purple-800",
   generating_reports: "bg-indigo-100 text-indigo-800",
   completed: "bg-green-100 text-green-800",
+  partially_completed: "bg-yellow-100 text-yellow-800",
   failed: "bg-red-100 text-red-800",
 };
 
@@ -24,6 +32,7 @@ export function PropertyDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [tab, setTab] = useState<Tab>("photos");
+  const [selectedPhoto, setSelectedPhoto] = useState<(DbPhoto & { url?: string }) | null>(null);
 
   const { data: property, isLoading } = useProperty(id!);
   const updateProperty = useUpdateProperty(id!);
@@ -32,6 +41,10 @@ export function PropertyDetail() {
   const deletePhoto = useDeletePhoto(id!);
   const { data: analyses } = useAnalyses(id!);
   const createAnalysis = useCreateAnalysis(id!);
+  const archiveAnalysis = useArchiveAnalysis(id!);
+  const updatePhotoMetadata = useUpdatePhotoMetadata(id!);
+  const researchLocation = useResearchLocation(id!);
+  const queryClient = useQueryClient();
 
   if (isLoading || !property) {
     return <div className="text-center py-12 text-gray-500">Loading...</div>;
@@ -95,6 +108,7 @@ export function PropertyDetail() {
           <PhotoGrid
             photos={photos ?? []}
             onDelete={(photoId) => deletePhoto.mutate(photoId)}
+            onPhotoClick={(photo) => setSelectedPhoto(photo)}
           />
         </div>
       )}
@@ -136,11 +150,28 @@ export function PropertyDetail() {
                         {analysis.total_photos} photos
                       </p>
                     </div>
-                    <span
-                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${STATUS_STYLES[analysis.status]}`}
-                    >
-                      {analysis.status.replace(/_/g, " ")}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${STATUS_STYLES[analysis.status]}`}
+                      >
+                        {analysis.status.replace(/_/g, " ")}
+                      </span>
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          if (window.confirm("Remove this analysis from the list? The data will be preserved.")) {
+                            archiveAnalysis.mutate(analysis.id);
+                          }
+                        }}
+                        className="text-gray-400 hover:text-red-500 transition-colors duration-150"
+                        title="Archive analysis"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                        </svg>
+                      </button>
+                    </div>
                   </div>
                 </Link>
               ))}
@@ -154,19 +185,89 @@ export function PropertyDetail() {
       )}
 
       {tab === "overview" && (
-        <div className="max-w-lg">
-          <PropertyForm
-            initialValues={{
-              name: property.name,
-              description: property.description ?? undefined,
-              listing_url: property.listing_url ?? undefined,
-              context: property.context ?? undefined,
-            }}
-            onSubmit={(data) => updateProperty.mutate(data)}
-            isLoading={updateProperty.isPending}
-            submitLabel="Update Property"
-          />
+        <div className="space-y-6">
+          <div className="max-w-lg">
+            <PropertyForm
+              initialValues={{
+                name: property.name,
+                description: property.description ?? undefined,
+                listing_url: property.listing_url ?? undefined,
+                context: property.context ?? undefined,
+                address_line1: property.address_line1 ?? undefined,
+                address_line2: property.address_line2 ?? undefined,
+                city: property.city ?? undefined,
+                state: property.state ?? undefined,
+                zip_code: property.zip_code ?? undefined,
+                country: property.country ?? undefined,
+              }}
+              onSubmit={(data) => updateProperty.mutate(data)}
+              isLoading={updateProperty.isPending}
+              submitLabel="Update Property"
+            />
+          </div>
+
+          {(property.city || property.state) && !property.location_profile && (
+            <button
+              onClick={() =>
+                researchLocation.mutate(undefined, {
+                  onSuccess: () => {
+                    queryClient.invalidateQueries({
+                      queryKey: ["properties", id],
+                    });
+                  },
+                })
+              }
+              disabled={researchLocation.isPending}
+              className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-150 disabled:opacity-50"
+            >
+              {researchLocation.isPending
+                ? "Researching..."
+                : "Research Location"}
+            </button>
+          )}
+
+          {property.scraped_data && (
+            <ScrapedDataDisplay
+              data={property.scraped_data as Record<string, unknown>}
+            />
+          )}
+
+          {property.location_profile && (
+            <LocationProfileDisplay
+              profile={property.location_profile as Record<string, unknown>}
+              isRefreshing={researchLocation.isPending}
+              onRefresh={() =>
+                researchLocation.mutate(undefined, {
+                  onSuccess: () => {
+                    queryClient.invalidateQueries({
+                      queryKey: ["properties", id],
+                    });
+                  },
+                })
+              }
+            />
+          )}
+
+          {property.property_profile && (
+            <PropertyProfileDisplay
+              profile={property.property_profile as Record<string, unknown>}
+            />
+          )}
         </div>
+      )}
+
+      {selectedPhoto && (
+        <PhotoDetailModal
+          photo={selectedPhoto}
+          isSaving={updatePhotoMetadata.isPending}
+          onClose={() => setSelectedPhoto(null)}
+          onSave={(data) =>
+            updatePhotoMetadata.mutate(
+              { photoId: selectedPhoto.id, data },
+              { onSuccess: () => setSelectedPhoto(null) }
+            )
+          }
+        />
       )}
     </div>
   );

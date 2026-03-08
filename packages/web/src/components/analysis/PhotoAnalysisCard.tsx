@@ -10,7 +10,7 @@ const PRIORITY_STYLES: Record<Priority, string> = {
 };
 
 interface Props {
-  analysisPhoto: DbAnalysisPhoto & { photo: DbPhoto };
+  analysisPhoto: DbAnalysisPhoto & { photos: DbPhoto & { url?: string } };
 }
 
 export function PhotoAnalysisCard({ analysisPhoto }: Props) {
@@ -20,7 +20,7 @@ export function PhotoAnalysisCard({ analysisPhoto }: Props) {
     <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
       <div className="aspect-video relative">
         <img
-          src={`${BASE_URL}/api/v1/photos/${analysisPhoto.photo.id}/file`}
+          src={`${BASE_URL}/api/v1/photos/${analysisPhoto.photos.id}/file`}
           alt={analysisPhoto.room}
           className="w-full h-full object-cover"
         />

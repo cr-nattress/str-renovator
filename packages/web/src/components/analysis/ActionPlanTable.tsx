@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import type { ActionItem, Priority } from "@str-renovator/shared";
 import type { JourneyItemWithImage } from "../../api/journey";
 
@@ -74,12 +75,40 @@ export function ActionPlanTable({ actionPlan, journeyItems }: Props) {
                         className="w-12 h-12 rounded object-cover"
                       />
                     ) : imageStatus === "pending" || imageStatus === "processing" ? (
-                      <div className="w-12 h-12 rounded bg-gray-100 animate-pulse" />
+                      <div className="w-12 h-12 rounded bg-gray-100 flex items-center justify-center">
+                        <svg
+                          className="w-5 h-5 text-gray-400 animate-spin"
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                      </div>
+                    ) : imageStatus === "failed" ? (
+                      <div className="w-12 h-12 rounded bg-red-50 flex items-center justify-center" title={`${item.item} — image generation failed`}>
+                        <svg className="w-5 h-5 text-red-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+                        </svg>
+                      </div>
                     ) : (
-                      <div className="w-12 h-12" />
+                      <div className="w-12 h-12 rounded bg-gray-50 flex items-center justify-center">
+                        <svg className="w-5 h-5 text-gray-300" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0 0 22.5 18.75V5.25A2.25 2.25 0 0 0 20.25 3H3.75A2.25 2.25 0 0 0 1.5 5.25v13.5A2.25 2.25 0 0 0 3.75 21Z" />
+                        </svg>
+                      </div>
                     )}
                   </td>
-                  <td className="px-6 py-4 text-gray-900">{item.item}</td>
+                  <td className="px-6 py-4 text-gray-900">
+                    {matchingItem ? (
+                      <Link to={`/journey/${matchingItem.id}`} className="hover:text-blue-600 transition-colors">
+                        {item.item}
+                      </Link>
+                    ) : (
+                      item.item
+                    )}
+                  </td>
                   <td className="px-6 py-4 text-gray-700">
                     {item.estimated_cost}
                   </td>

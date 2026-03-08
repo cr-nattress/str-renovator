@@ -19,10 +19,25 @@ const STATUS_CONFIG: Record<
     color: "text-blue-600",
     bgColor: "bg-blue-100",
   },
+  extracting_data: {
+    label: "Extracting listing data...",
+    color: "text-indigo-600",
+    bgColor: "bg-indigo-100",
+  },
   downloading: {
     label: "Downloading photos...",
     color: "text-purple-600",
     bgColor: "bg-purple-100",
+  },
+  researching_location: {
+    label: "Researching location...",
+    color: "text-teal-600",
+    bgColor: "bg-teal-100",
+  },
+  synthesizing: {
+    label: "Building property profile...",
+    color: "text-amber-600",
+    bgColor: "bg-amber-100",
   },
   completed: {
     label: "Import complete!",
@@ -49,7 +64,7 @@ export function ScrapeStatus({ jobId, onDone }: Props) {
   }
 
   const config = STATUS_CONFIG[job.status];
-  const isActive = job.status === "pending" || job.status === "scraping" || job.status === "downloading";
+  const isActive = job.status === "pending" || job.status === "scraping" || job.status === "extracting_data" || job.status === "downloading" || job.status === "researching_location" || job.status === "synthesizing";
   const showProgress = job.status === "downloading" && job.total_photos > 0;
   const pct = showProgress
     ? Math.round((job.downloaded_photos / job.total_photos) * 100)

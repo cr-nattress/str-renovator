@@ -80,13 +80,13 @@ export function AnalysisView() {
             />
           )}
 
-          {analysis.photos && analysis.photos.length > 0 && (
+          {analysis.analysis_photos && analysis.analysis_photos.length > 0 && (
             <>
               <h2 className="text-lg font-semibold text-gray-900">
                 Photo Analysis
               </h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {analysis.photos.map((ap) => (
+                {analysis.analysis_photos.map((ap) => (
                   <PhotoAnalysisCard key={ap.id} analysisPhoto={ap} />
                 ))}
               </div>

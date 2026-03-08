@@ -2,7 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { supabase } from "../config/supabase.js";
 import { checkTierLimit } from "../middleware/tier.js";
-import { TIER_LIMITS } from "@str-renovator/shared";
+import { TIER_LIMITS, PlatformError } from "@str-renovator/shared";
 import { enqueueRenovation } from "../services/queue.service.js";
 import * as storageService from "../services/storage.service.js";
 
@@ -58,8 +58,7 @@ router.post("/renovations/:id/feedback", async (req, res, next) => {
       .single();
 
     if (!renovation) {
-      res.status(404).json({ error: "Renovation not found" });
-      return;
+      throw PlatformError.notFound("Renovation", req.params.id);
     }
 
     const { data, error } = await supabase
@@ -77,8 +76,7 @@ router.post("/renovations/:id/feedback", async (req, res, next) => {
     res.status(201).json(data);
   } catch (err) {
     if (err instanceof z.ZodError) {
-      res.status(400).json({ error: err.errors });
-      return;
+      throw PlatformError.validationError(err.errors.map(e => e.message).join(", "));
     }
     next(err);
   }
@@ -111,13 +109,10 @@ router.post(
         .select("*", { count: "exact", head: true })
         .eq("analysis_photo_id", renovation.analysis_photo_id);
 
-      const limit = TIER_LIMITS[user.tier].rerunsPerPhoto;
+      const limit = (req as any).tierLimit ?? TIER_LIMITS[user.tier].rerunsPerPhoto;
       if ((count ?? 0) >= limit + 1) {
         // +1 for original
-        res.status(403).json({
-          error: `Rerun limit (${limit}) reached for your ${user.tier} plan`,
-        });
-        return;
+        throw PlatformError.tierLimitReached("reruns per photo", limit);
       }
 
       // Collect all feedback for renovations of this analysis_photo

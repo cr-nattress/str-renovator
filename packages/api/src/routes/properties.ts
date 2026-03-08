@@ -2,7 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { supabase } from "../config/supabase.js";
 import { checkTierLimit } from "../middleware/tier.js";
-import { TIER_LIMITS } from "@str-renovator/shared";
+import { TIER_LIMITS, PlatformError } from "@str-renovator/shared";
 
 const router = Router();
 
@@ -11,6 +11,12 @@ const createPropertySchema = z.object({
   description: z.string().optional(),
   listing_url: z.string().url().optional(),
   context: z.string().optional(),
+  address_line1: z.string().optional(),
+  address_line2: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  zip_code: z.string().optional(),
+  country: z.string().optional(),
 });
 
 const updatePropertySchema = z.object({
@@ -18,6 +24,14 @@ const updatePropertySchema = z.object({
   description: z.string().optional(),
   listing_url: z.string().url().optional(),
   context: z.string().optional(),
+  address_line1: z.string().optional(),
+  address_line2: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  zip_code: z.string().optional(),
+  country: z.string().optional(),
+  scraped_data: z.record(z.unknown()).optional(),
+  location_profile: z.record(z.unknown()).optional(),
 });
 
 // POST / - Create property
@@ -32,12 +46,9 @@ router.post("/", checkTierLimit("properties"), async (req, res, next) => {
       .select("*", { count: "exact", head: true })
       .eq("user_id", user.id);
 
-    const limit = TIER_LIMITS[user.tier].properties;
+    const limit = (req as any).tierLimit ?? TIER_LIMITS[user.tier].properties;
     if ((count ?? 0) >= limit) {
-      res.status(403).json({
-        error: `Property limit reached (${limit}) for your ${user.tier} plan`,
-      });
-      return;
+      throw PlatformError.tierLimitReached("properties", limit);
     }
 
     const { data, error } = await supabase
@@ -50,8 +61,7 @@ router.post("/", checkTierLimit("properties"), async (req, res, next) => {
     res.status(201).json(data);
   } catch (err) {
     if (err instanceof z.ZodError) {
-      res.status(400).json({ error: err.errors });
-      return;
+      throw PlatformError.validationError(err.errors.map(e => e.message).join(", "));
     }
     next(err);
   }
@@ -86,8 +96,7 @@ router.get("/:id", async (req, res, next) => {
       .single();
 
     if (error || !data) {
-      res.status(404).json({ error: "Property not found" });
-      return;
+      throw PlatformError.notFound("Property", req.params.id);
     }
     res.json(data);
   } catch (err) {
@@ -110,14 +119,12 @@ router.patch("/:id", async (req, res, next) => {
       .single();
 
     if (error || !data) {
-      res.status(404).json({ error: "Property not found" });
-      return;
+      throw PlatformError.notFound("Property", req.params.id);
     }
     res.json(data);
   } catch (err) {
     if (err instanceof z.ZodError) {
-      res.status(400).json({ error: err.errors });
-      return;
+      throw PlatformError.validationError(err.errors.map(e => e.message).join(", "));
     }
     next(err);
   }

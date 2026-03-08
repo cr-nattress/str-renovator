@@ -6,6 +6,7 @@ import {
   TIER_LIMITS,
   SUPPORTED_MIME_TYPES,
   MAX_FILE_SIZE,
+  PlatformError,
 } from "@str-renovator/shared";
 import * as storageService from "../services/storage.service.js";
 
@@ -41,8 +42,7 @@ router.post(
         .single();
 
       if (!property) {
-        res.status(404).json({ error: "Property not found" });
-        return;
+        throw PlatformError.notFound("Property", propertyId ?? req.params.propertyId);
       }
 
       // Check photo count limit
@@ -53,16 +53,12 @@ router.post(
 
       const files = req.files as Express.Multer.File[];
       if (!files || files.length === 0) {
-        res.status(400).json({ error: "No photos provided" });
-        return;
+        throw PlatformError.validationError("No photos provided");
       }
 
-      const limit = TIER_LIMITS[user.tier].photosPerProperty;
+      const limit = (req as any).tierLimit ?? TIER_LIMITS[user.tier].photosPerProperty;
       if ((count ?? 0) + files.length > limit) {
-        res.status(403).json({
-          error: `Photo limit (${limit}) would be exceeded for your ${user.tier} plan`,
-        });
-        return;
+        throw PlatformError.tierLimitReached("photos per property", limit);
       }
 
       // Upload each file
@@ -115,7 +111,7 @@ router.get("/properties/:propertyId/photos", async (req, res, next) => {
       .single();
 
     if (!property) {
-      res.status(404).json({ error: "Property not found" });
+      throw PlatformError.notFound("Property", propertyId ?? req.params.propertyId);
       return;
     }
 
@@ -127,15 +123,62 @@ router.get("/properties/:propertyId/photos", async (req, res, next) => {
 
     if (error) throw error;
 
-    // Add signed URLs
-    const photosWithUrls = await Promise.all(
-      (photos ?? []).map(async (photo: any) => ({
-        ...photo,
-        url: await storageService.getSignedUrl(photo.storage_path),
-      }))
-    );
+    // Add signed URLs — skip photos whose storage objects are missing
+    const photosWithUrls = (
+      await Promise.all(
+        (photos ?? []).map(async (photo: any) => {
+          try {
+            const url = await storageService.getSignedUrl(photo.storage_path);
+            return { ...photo, url };
+          } catch {
+            return null;
+          }
+        })
+      )
+    ).filter(Boolean);
 
     res.json(photosWithUrls);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// PATCH /photos/:id - Update photo metadata
+router.patch("/photos/:id", async (req, res, next) => {
+  try {
+    const user = req.dbUser!;
+
+    const { data: photo } = await supabase
+      .from("photos")
+      .select("id")
+      .eq("id", req.params.id)
+      .eq("user_id", user.id)
+      .single();
+
+    if (!photo) {
+      throw PlatformError.notFound("Photo", req.params.id);
+    }
+
+    const { display_name, description, tags, constraints } = req.body;
+    const updates: Record<string, unknown> = {};
+    if (display_name !== undefined) updates.display_name = display_name;
+    if (description !== undefined) updates.description = description;
+    if (tags !== undefined) updates.tags = tags;
+    if (constraints !== undefined) updates.constraints = constraints;
+
+    if (Object.keys(updates).length === 0) {
+      throw PlatformError.validationError("No fields to update");
+    }
+
+    const { data: updated, error } = await supabase
+      .from("photos")
+      .update(updates)
+      .eq("id", req.params.id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json(updated);
   } catch (err) {
     next(err);
   }
@@ -154,8 +197,7 @@ router.delete("/photos/:id", async (req, res, next) => {
       .single();
 
     if (!photo) {
-      res.status(404).json({ error: "Photo not found" });
-      return;
+      throw PlatformError.notFound("Photo", req.params.id);
     }
 
     await storageService.deletePhoto(photo.storage_path);

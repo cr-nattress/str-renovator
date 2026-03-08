@@ -3,6 +3,7 @@ import {
   renovationQueue,
   scrapeQueue,
   actionImageQueue,
+  locationResearchQueue,
 } from "../config/queue.js";
 import type { ImageQuality, ImageSize } from "@str-renovator/shared";
 
@@ -19,6 +20,9 @@ export async function enqueueAnalysis(
     userId,
     quality,
     size,
+  }, {
+    attempts: 3,
+    backoff: { type: "exponential", delay: 10000 },
   });
 }
 
@@ -35,6 +39,9 @@ export async function enqueueRenovation(
     userId,
     quality,
     size,
+  }, {
+    attempts: 3,
+    backoff: { type: "exponential", delay: 10000 },
   });
 }
 
@@ -59,6 +66,9 @@ export async function enqueueActionImage(
     styleDirection,
     quality,
     size,
+  }, {
+    attempts: 3,
+    backoff: { type: "exponential", delay: 10000 },
   });
 }
 
@@ -68,5 +78,18 @@ export async function enqueueScrape(
   userId: string,
   url: string
 ): Promise<void> {
-  await scrapeQueue.add("scrape", { scrapeJobId, propertyId, userId, url });
+  await scrapeQueue.add("scrape", { scrapeJobId, propertyId, userId, url }, {
+    attempts: 3,
+    backoff: { type: "exponential", delay: 10000 },
+  });
+}
+
+export async function enqueueLocationResearch(
+  propertyId: string,
+  userId: string
+): Promise<void> {
+  await locationResearchQueue.add("location-research", { propertyId, userId }, {
+    attempts: 3,
+    backoff: { type: "exponential", delay: 10000 },
+  });
 }

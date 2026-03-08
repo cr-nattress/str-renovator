@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import { TIER_LIMITS, type TierLimits } from "@str-renovator/shared";
+import { env } from "../config/env.js";
 
 export function checkTierLimit(limitKey: keyof TierLimits) {
   return async (
@@ -11,6 +12,13 @@ export function checkTierLimit(limitKey: keyof TierLimits) {
       const user = req.dbUser;
       if (!user) {
         res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      // Debug mode bypasses all tier limits
+      if (env.debugMode) {
+        (req as any).tierLimit = Infinity;
+        next();
         return;
       }
 

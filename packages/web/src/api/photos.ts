@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/clerk-react";
-import type { DbPhoto } from "@str-renovator/shared";
+import type { DbPhoto, UpdatePhotoMetadataDto } from "@str-renovator/shared";
 import { apiFetch } from "./client";
 
 const BASE_URL = import.meta.env.VITE_API_URL || "";
@@ -42,6 +42,29 @@ export function useUploadPhotos(propertyId: string) {
         throw new Error(body.error || `Upload failed: ${res.status}`);
       }
       return res.json() as Promise<DbPhoto[]>;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["photos", propertyId] });
+    },
+  });
+}
+
+export function useUpdatePhotoMetadata(propertyId: string) {
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      photoId,
+      data,
+    }: {
+      photoId: string;
+      data: UpdatePhotoMetadataDto;
+    }) => {
+      const token = await getToken();
+      return apiFetch<DbPhoto>(`/api/v1/photos/${photoId}`, token!, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["photos", propertyId] });

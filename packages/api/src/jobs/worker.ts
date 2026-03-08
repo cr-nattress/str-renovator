@@ -1,10 +1,28 @@
-import { Worker } from "bullmq";
-import { queueConnection } from "../config/queue.js";
+import { Worker, type Queue } from "bullmq";
+import {
+  queueConnection,
+  analysisDlqQueue,
+  renovationDlqQueue,
+  scrapeDlqQueue,
+  actionImageDlqQueue,
+  locationResearchDlqQueue,
+} from "../config/queue.js";
+import { logger } from "../config/logger.js";
 import { processAnalysisJob } from "./analyze.job.js";
 import { processRenovationJob } from "./renovate.job.js";
 import { processScrapeJob } from "./scrape.job.js";
 import { processActionImageJob } from "./action-image.job.js";
+import { processLocationResearchJob } from "./location-research.job.js";
 import { CONCURRENCY } from "@str-renovator/shared";
+
+/** Maps worker name to its dead-letter queue */
+const dlqMap: Record<string, Queue> = {
+  analysis: analysisDlqQueue,
+  renovation: renovationDlqQueue,
+  scrape: scrapeDlqQueue,
+  "action-image": actionImageDlqQueue,
+  "location-research": locationResearchDlqQueue,
+};
 
 export function startWorkers(): void {
   const analysisWorker = new Worker("analysis", processAnalysisJob, {
@@ -27,14 +45,37 @@ export function startWorkers(): void {
     concurrency: CONCURRENCY.actionImageGeneration,
   });
 
-  for (const worker of [analysisWorker, renovationWorker, scrapeWorker, actionImageWorker]) {
-    worker.on("failed", (job, err) => {
-      console.error(`[worker] Job ${job?.id} failed:`, err.message);
+  const locationResearchWorker = new Worker("location-research", processLocationResearchJob, {
+    connection: queueConnection,
+    concurrency: 2,
+  });
+
+  for (const worker of [analysisWorker, renovationWorker, scrapeWorker, actionImageWorker, locationResearchWorker]) {
+    worker.on("failed", async (job, err) => {
+      if (!job) return;
+      logger.error({ jobId: job.id, queue: worker.name, err: err.message }, "job failed");
+
+      // Move to DLQ when all retries are exhausted
+      const maxAttempts = job.opts.attempts ?? 1;
+      if (job.attemptsMade >= maxAttempts) {
+        const dlqQueue = dlqMap[worker.name];
+        if (dlqQueue) {
+          await dlqQueue.add("failed-job", {
+            originalJobId: job.id,
+            originalJobName: job.name,
+            data: job.data,
+            failedAt: new Date().toISOString(),
+            error: err.message,
+            attemptsMade: job.attemptsMade,
+          });
+          logger.error({ jobId: job.id, queue: `${worker.name}:failed` }, "job moved to DLQ");
+        }
+      }
     });
     worker.on("completed", (job) => {
-      console.log(`[worker] Job ${job.id} completed`);
+      logger.info({ jobId: job.id, queue: worker.name }, "job completed");
     });
   }
 
-  console.log("[worker] All workers started");
+  logger.info("all workers started");
 }

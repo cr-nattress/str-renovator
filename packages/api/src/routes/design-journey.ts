@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { supabase } from "../config/supabase.js";
+import { PlatformError } from "@str-renovator/shared";
 import * as storageService from "../services/storage.service.js";
 
 const router = Router();
@@ -35,8 +36,7 @@ router.get("/properties/:propertyId/journey", async (req, res, next) => {
       .single();
 
     if (!property) {
-      res.status(404).json({ error: "Property not found" });
-      return;
+      throw PlatformError.notFound("Property", propertyId);
     }
 
     const { data, error } = await supabase
@@ -84,8 +84,7 @@ router.post("/properties/:propertyId/journey", async (req, res, next) => {
       .single();
 
     if (!property) {
-      res.status(404).json({ error: "Property not found" });
-      return;
+      throw PlatformError.notFound("Property", propertyId);
     }
 
     const { data, error } = await supabase
@@ -102,9 +101,58 @@ router.post("/properties/:propertyId/journey", async (req, res, next) => {
     res.status(201).json(data);
   } catch (err) {
     if (err instanceof z.ZodError) {
-      res.status(400).json({ error: err.errors });
-      return;
+      throw PlatformError.validationError(err.errors.map(e => e.message).join(", "));
     }
+    next(err);
+  }
+});
+
+// GET /journey/:id - Get single journey item with signed URLs
+router.get("/journey/:id", async (req, res, next) => {
+  try {
+    const user = req.dbUser!;
+
+    const { data: item, error } = await supabase
+      .from("design_journey_items")
+      .select("*")
+      .eq("id", req.params.id)
+      .eq("user_id", user.id)
+      .single();
+
+    if (error || !item) {
+      throw PlatformError.notFound("Journey item", req.params.id);
+    }
+
+    // Generate signed URL for the AI-generated image
+    let image_url: string | null = null;
+    if (item.image_storage_path) {
+      try {
+        image_url = await storageService.getSignedUrl(item.image_storage_path);
+      } catch {
+        // Signed URL generation failed — leave as null
+      }
+    }
+
+    // Generate signed URL for the original source photo
+    let source_photo_url: string | null = null;
+    if (item.source_photo_id) {
+      const { data: photo } = await supabase
+        .from("photos")
+        .select("storage_path")
+        .eq("id", item.source_photo_id)
+        .single();
+
+      if (photo?.storage_path) {
+        try {
+          source_photo_url = await storageService.getSignedUrl(photo.storage_path);
+        } catch {
+          // Signed URL generation failed — leave as null
+        }
+      }
+    }
+
+    res.json({ ...item, image_url, source_photo_url });
+  } catch (err) {
     next(err);
   }
 });
@@ -124,14 +172,12 @@ router.patch("/journey/:id", async (req, res, next) => {
       .single();
 
     if (error || !data) {
-      res.status(404).json({ error: "Journey item not found" });
-      return;
+      throw PlatformError.notFound("Journey item", req.params.id);
     }
     res.json(data);
   } catch (err) {
     if (err instanceof z.ZodError) {
-      res.status(400).json({ error: err.errors });
-      return;
+      throw PlatformError.validationError(err.errors.map(e => e.message).join(", "));
     }
     next(err);
   }
@@ -152,8 +198,7 @@ router.get("/properties/:propertyId/journey/summary", async (req, res, next) => 
       .single();
 
     if (!property) {
-      res.status(404).json({ error: "Property not found" });
-      return;
+      throw PlatformError.notFound("Property", propertyId);
     }
 
     const { data: items, error } = await supabase

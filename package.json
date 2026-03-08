@@ -1,6 +1,7 @@
 {
   "name": "str-renovator-app",
   "private": true,
+  "packageManager": "npm@11.8.0",
   "workspaces": [
     "packages/*"
   ],
@@ -11,6 +12,8 @@
     "dev:api": "npm run dev -w @str-renovator/api",
     "dev:web": "npm run dev -w @str-renovator/web",
     "build:shared": "npm run build -w @str-renovator/shared",
+    "test": "npm run test -w @str-renovator/api",
+    "test:api": "npm run test -w @str-renovator/api",
     "test:e2e": "npm run test:e2e -w @str-renovator/e2e",
     "test:e2e:ui": "npm run test:e2e:ui -w @str-renovator/e2e",
     "test:e2e:report": "npm run test:e2e:report -w @str-renovator/e2e"

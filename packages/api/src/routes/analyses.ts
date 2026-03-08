@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { supabase } from "../config/supabase.js";
 import { checkTierLimit } from "../middleware/tier.js";
-import { TIER_LIMITS } from "@str-renovator/shared";
+import { TIER_LIMITS, PlatformError } from "@str-renovator/shared";
 import { enqueueAnalysis } from "../services/queue.service.js";
 import * as storageService from "../services/storage.service.js";
 import type { SSEEvent, AnalysisStatus } from "@str-renovator/shared";
@@ -26,17 +26,13 @@ router.post(
         .single();
 
       if (!property) {
-        res.status(404).json({ error: "Property not found" });
-        return;
+        throw PlatformError.notFound("Property", propertyId);
       }
 
       // Check monthly limit
-      const limit = TIER_LIMITS[user.tier].analysesPerMonth;
+      const limit = (req as any).tierLimit ?? TIER_LIMITS[user.tier].analysesPerMonth;
       if (user.analyses_this_month >= limit) {
-        res.status(403).json({
-          error: `Monthly analysis limit (${limit}) reached for your ${user.tier} plan`,
-        });
-        return;
+        throw PlatformError.tierLimitReached("analyses per month", limit);
       }
 
       // Count photos
@@ -46,8 +42,7 @@ router.post(
         .eq("property_id", propertyId);
 
       if (!photoCount || photoCount === 0) {
-        res.status(400).json({ error: "No photos uploaded for this property" });
-        return;
+        throw PlatformError.validationError("No photos uploaded for this property");
       }
 
       const quality = req.body.quality ?? TIER_LIMITS[user.tier].imageQuality;
@@ -94,6 +89,7 @@ router.get("/properties/:propertyId/analyses", async (req, res, next) => {
       .select("*")
       .eq("property_id", propertyId)
       .eq("user_id", user.id)
+      .eq("is_active", true)
       .order("created_at", { ascending: false });
 
     if (error) throw error;
@@ -116,8 +112,7 @@ router.get("/analyses/:id", async (req, res, next) => {
       .single();
 
     if (error || !analysis) {
-      res.status(404).json({ error: "Analysis not found" });
-      return;
+      throw PlatformError.notFound("Analysis", req.params.id);
     }
 
     // Add signed URLs for photos
@@ -167,12 +162,14 @@ router.get("/analyses/:id/stream", async (req, res, next) => {
 
     let lastStatus: string | null = null;
     let lastCompleted = -1;
+    let lastBatchCompleted = -1;
+    let lastBatchFailed = -1;
 
     const interval = setInterval(async () => {
       try {
         const { data } = await supabase
           .from("analyses")
-          .select("status, completed_photos, total_photos, error")
+          .select("status, completed_photos, total_photos, total_batches, completed_batches, failed_batches, error")
           .eq("id", req.params.id)
           .single();
 
@@ -189,6 +186,31 @@ router.get("/analyses/:id/stream", async (req, res, next) => {
           sendEvent({ type: "status", status: data.status as AnalysisStatus });
         }
 
+        // Send batch progress updates
+        if (
+          data.completed_batches !== lastBatchCompleted ||
+          data.failed_batches !== lastBatchFailed
+        ) {
+          if (data.completed_batches > lastBatchCompleted) {
+            lastBatchCompleted = data.completed_batches;
+            sendEvent({
+              type: "batch_progress",
+              batchIndex: data.completed_batches - 1,
+              totalBatches: data.total_batches,
+              batchStatus: "completed",
+            });
+          }
+          if (data.failed_batches > lastBatchFailed) {
+            lastBatchFailed = data.failed_batches;
+            sendEvent({
+              type: "batch_progress",
+              batchIndex: data.completed_batches + data.failed_batches - 1,
+              totalBatches: data.total_batches,
+              batchStatus: "failed",
+            });
+          }
+        }
+
         // Send progress update
         if (data.completed_photos !== lastCompleted) {
           lastCompleted = data.completed_photos;
@@ -200,7 +222,7 @@ router.get("/analyses/:id/stream", async (req, res, next) => {
         }
 
         // End on terminal states
-        if (data.status === "completed") {
+        if (data.status === "completed" || data.status === "partially_completed") {
           sendEvent({ type: "done" });
           clearInterval(interval);
           res.end();
@@ -219,6 +241,35 @@ router.get("/analyses/:id/stream", async (req, res, next) => {
     req.on("close", () => {
       clearInterval(interval);
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// PATCH /analyses/:id/archive - Soft-delete (archive) an analysis
+router.patch("/analyses/:id/archive", async (req, res, next) => {
+  try {
+    const user = req.dbUser!;
+
+    const { data: analysis } = await supabase
+      .from("analyses")
+      .select("id")
+      .eq("id", req.params.id)
+      .eq("user_id", user.id)
+      .single();
+
+    if (!analysis) {
+      res.status(404).json({ error: "Analysis not found" });
+      return;
+    }
+
+    const { error } = await supabase
+      .from("analyses")
+      .update({ is_active: false })
+      .eq("id", req.params.id);
+
+    if (error) throw error;
+    res.status(204).end();
   } catch (err) {
     next(err);
   }
