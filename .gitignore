@@ -4,3 +4,11 @@ dist/
 .env.local
 .turbo/
 *.tsbuildinfo
+
+# Crawl logs (regenerated each run, not committed)
+logs/*.json
+logs/errors/
+logs/analyzed/
+
+# Saved auth state
+packages/e2e/crawl/auth/.auth-state.json
