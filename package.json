@@ -16,7 +16,10 @@
     "test:api": "npm run test -w @str-renovator/api",
     "test:e2e": "npm run test:e2e -w @str-renovator/e2e",
     "test:e2e:ui": "npm run test:e2e:ui -w @str-renovator/e2e",
-    "test:e2e:report": "npm run test:e2e:report -w @str-renovator/e2e"
+    "test:e2e:report": "npm run test:e2e:report -w @str-renovator/e2e",
+    "crawl": "npm run crawl -w @str-renovator/e2e",
+    "crawl:full": "npm run crawl:full -w @str-renovator/e2e",
+    "crawl:analyze": "npm run crawl:analyze -w @str-renovator/e2e"
   },
   "devDependencies": {
     "turbo": "^2.3.0",
