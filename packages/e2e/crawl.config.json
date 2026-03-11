@@ -1,0 +1,15 @@
+{
+  "baseURL": "http://localhost:5173",
+  "pageTimeout": 60000,
+  "networkIdleTimeout": 5000,
+  "maxDepth": 5,
+  "excludePatterns": [
+    "^https?://",
+    "^mailto:",
+    "^tel:",
+    "^javascript:",
+    "#"
+  ],
+  "excludeHosts": [],
+  "screenshotOnError": true
+}
