@@ -4,9 +4,10 @@
  *
  * Playwright config for the UI discovery crawler.
  * Separate from the main e2e config — longer timeouts, crawl-specific test dir.
- * Supports two auth strategies:
- *   1. Programmatic Clerk login (default) via global setup
- *   2. Manually saved storage state (set USE_SAVED_AUTH=true in .env.test)
+ * Auth strategies (opt-in):
+ *   1. Saved storage state (set USE_SAVED_AUTH=true in .env.test)
+ *   2. Programmatic Clerk login (set USE_CLERK_AUTH=true in .env.test)
+ *   3. No auth (default) — crawls only public/sign-in pages
  */
 import { defineConfig } from "@playwright/test";
 import { config } from "dotenv";
@@ -20,9 +21,9 @@ const useSavedAuth = process.env.USE_SAVED_AUTH === "true";
 const savedAuthPath = path.resolve(__dirname, "crawl/auth/.auth-state.json");
 const globalAuthPath = path.resolve(__dirname, ".playwright/storageState.json");
 
-// Skip Clerk global setup when using saved auth or when no Clerk credentials exist
-const hasClerkCredentials = !!process.env.CLERK_PUBLISHABLE_KEY;
-const skipGlobalSetup = useSavedAuth || !hasClerkCredentials;
+// Only use Clerk global setup when explicitly opted in
+const useClerkAuth = process.env.USE_CLERK_AUTH === "true";
+const skipGlobalSetup = !useClerkAuth;
 
 // Determine which storage state to use
 function resolveStorageState(): string | undefined {
