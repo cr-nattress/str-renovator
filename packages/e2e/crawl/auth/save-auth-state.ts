@@ -19,8 +19,14 @@ const baseURL = process.env.E2E_WEB_URL ?? "http://localhost:5173";
 const outputPath = path.resolve(__dirname, ".auth-state.json");
 
 async function saveAuthState(): Promise<void> {
-  const browser = await chromium.launch({ headless: false });
-  const context = await browser.newContext();
+  const browser = await chromium.launch({
+    headless: false,
+    args: ["--disable-blink-features=AutomationControlled"],
+  });
+  const context = await browser.newContext({
+    viewport: { width: 1280, height: 800 },
+    userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+  });
   const page = await context.newPage();
 
   console.log(`\nNavigating to ${baseURL}`);
