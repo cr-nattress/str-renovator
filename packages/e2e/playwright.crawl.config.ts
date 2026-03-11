@@ -20,12 +20,51 @@ const useSavedAuth = process.env.USE_SAVED_AUTH === "true";
 const savedAuthPath = path.resolve(__dirname, "crawl/auth/.auth-state.json");
 const globalAuthPath = path.resolve(__dirname, ".playwright/storageState.json");
 
+// Skip Clerk global setup when using saved auth or when no Clerk credentials exist
+const hasClerkCredentials = !!process.env.CLERK_PUBLISHABLE_KEY;
+const skipGlobalSetup = useSavedAuth || !hasClerkCredentials;
+
 // Determine which storage state to use
-function resolveStorageState(): string {
+function resolveStorageState(): string | undefined {
   if (useSavedAuth && fs.existsSync(savedAuthPath)) {
     return savedAuthPath;
   }
-  return globalAuthPath;
+  if (fs.existsSync(globalAuthPath)) {
+    return globalAuthPath;
+  }
+  // No storage state available — crawl without auth
+  return undefined;
+}
+
+// Build projects list conditionally
+function buildProjects() {
+  const crawlProject = {
+    name: "discovery-crawl",
+    use: {
+      browserName: "chromium" as const,
+      ...(resolveStorageState() ? { storageState: resolveStorageState() } : {}),
+    },
+    ...(skipGlobalSetup ? {} : { dependencies: ["crawl-setup"] }),
+  };
+
+  if (skipGlobalSetup) {
+    return [crawlProject];
+  }
+
+  return [
+    {
+      name: "crawl-setup",
+      testMatch: /global\.setup\.ts/,
+      testDir: ".",
+      teardown: "crawl-teardown",
+    },
+    crawlProject,
+    {
+      name: "crawl-teardown",
+      testMatch: /global\.teardown\.ts/,
+      testDir: ".",
+    },
+  ];
 }
 
 export default defineConfig({
@@ -45,25 +84,5 @@ export default defineConfig({
     actionTimeout: 30_000,
     navigationTimeout: 60_000,
   },
-  projects: [
-    {
-      name: "crawl-setup",
-      testMatch: /global\.setup\.ts/,
-      testDir: ".",
-      teardown: "crawl-teardown",
-    },
-    {
-      name: "discovery-crawl",
-      use: {
-        browserName: "chromium",
-        storageState: resolveStorageState(),
-      },
-      dependencies: ["crawl-setup"],
-    },
-    {
-      name: "crawl-teardown",
-      testMatch: /global\.teardown\.ts/,
-      testDir: ".",
-    },
-  ],
+  projects: buildProjects(),
 });
