@@ -1,16 +1,5 @@
 import { test, expect } from "../fixtures";
 
-/**
- * SKIPPED: The RenovationView component has a React hook order violation
- * that crashes the entire app when navigated to directly.
- * This is a production code bug, not a test issue.
- * Console error: "React has detected a change in the order of Hooks
- * called by RenovationView"
- *
- * TODO: Fix the hook order issue in packages/web/src/pages/RenovationView.tsx
- * then re-enable these tests.
- */
-
 const MOCK_ANALYSIS_PHOTO = {
   id: "mock-ap-1",
   analysis_id: "mock-analysis-1",
@@ -49,8 +38,6 @@ const MOCK_RENOVATIONS = [
 ];
 
 test.describe("05 — Renovation View", () => {
-  // Skip all tests — RenovationView crashes React due to hook order violation
-  test.skip();
 
   test.beforeEach(async ({ authedPage: page }) => {
     await page.route("**/api/v1/analysis-photos/*/renovations", async (route) => {
@@ -94,7 +81,7 @@ test.describe("05 — Renovation View", () => {
     await page.goto("/analysis-photos/mock-ap-1/renovations");
 
     await expect(page.getByText("Before")).toBeVisible({ timeout: 10_000 });
-    await expect(page.getByText("After")).toBeVisible();
+    await expect(page.getByText("AI Renovated")).toBeVisible();
 
     await screenshotHelper.take(page, "before-after-slider");
   });
@@ -105,7 +92,7 @@ test.describe("05 — Renovation View", () => {
   }) => {
     await page.goto("/analysis-photos/mock-ap-1/renovations");
 
-    await expect(page.getByText("Living Room")).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole("heading", { name: "Living Room Renovation" })).toBeVisible({ timeout: 10_000 });
     await expect(page.getByText("Suggested Renovations")).toBeVisible();
     await expect(page.getByText("Replace dated furniture")).toBeVisible();
 
@@ -117,7 +104,7 @@ test.describe("05 — Renovation View", () => {
     screenshotHelper,
   }) => {
     await page.goto("/analysis-photos/mock-ap-1/renovations");
-    await expect(page.getByText("Feedback")).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole("heading", { name: "Feedback", exact: true })).toBeVisible({ timeout: 10_000 });
 
     const thumbsUp = page.getByText("\uD83D\uDC4D");
     const thumbsDown = page.getByText("\uD83D\uDC4E");
@@ -135,7 +122,7 @@ test.describe("05 — Renovation View", () => {
 
   test("can submit feedback", async ({ authedPage: page, screenshotHelper }) => {
     await page.goto("/analysis-photos/mock-ap-1/renovations");
-    await expect(page.getByText("Feedback")).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole("heading", { name: "Feedback", exact: true })).toBeVisible({ timeout: 10_000 });
 
     await page.getByText("\uD83D\uDC4D").click();
     const commentBox = page.getByPlaceholder(

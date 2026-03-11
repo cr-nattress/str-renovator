@@ -29,6 +29,20 @@ export function RenovationView() {
   const submitFeedback = useSubmitFeedback(latestRenovation?.id ?? "");
   const rerunRenovation = useRerunRenovation(latestRenovation?.id ?? "");
 
+  const handleAction = useCallback(
+    (action: AvailableAction) => {
+      switch (action.command) {
+        case "submit-feedback":
+          document.getElementById("feedback-section")?.scrollIntoView({ behavior: "smooth" });
+          break;
+        case "rerun-renovation":
+          document.getElementById("rerun-section")?.scrollIntoView({ behavior: "smooth" });
+          break;
+      }
+    },
+    [],
+  );
+
   if (isLoading || !data) {
     return <RenovationViewSkeleton />;
   }
@@ -39,22 +53,6 @@ export function RenovationView() {
       { onSuccess: () => setFeedbackSubmitted(true) },
     );
   };
-
-  const handleAction = useCallback(
-    (action: AvailableAction) => {
-      switch (action.command) {
-        case "submit-feedback":
-          // Scroll to feedback section
-          document.getElementById("feedback-section")?.scrollIntoView({ behavior: "smooth" });
-          break;
-        case "rerun-renovation":
-          // Scroll to rerun section
-          document.getElementById("rerun-section")?.scrollIntoView({ behavior: "smooth" });
-          break;
-      }
-    },
-    [],
-  );
 
   return (
     <div>
