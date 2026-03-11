@@ -76,7 +76,7 @@ test.describe("05 — Renovation View", () => {
 
   test("shows before/after photo comparison slider", async ({
     authedPage: page,
-    screenshot,
+    screenshotHelper,
   }) => {
     await page.goto("/analysis-photos/mock-ap-1/renovations");
 
@@ -84,12 +84,12 @@ test.describe("05 — Renovation View", () => {
     await expect(page.getByText("Before")).toBeVisible({ timeout: 10_000 });
     await expect(page.getByText("After")).toBeVisible();
 
-    await screenshot.take(page, "before-after-slider");
+    await screenshotHelper.take(page, "before-after-slider");
   });
 
   test("shows renovation details: room name, priority, report", async ({
     authedPage: page,
-    screenshot,
+    screenshotHelper,
   }) => {
     await page.goto("/analysis-photos/mock-ap-1/renovations");
 
@@ -97,12 +97,12 @@ test.describe("05 — Renovation View", () => {
     await expect(page.getByText("Suggested Renovations")).toBeVisible();
     await expect(page.getByText("Replace dated furniture")).toBeVisible();
 
-    await screenshot.take(page, "renovation-details");
+    await screenshotHelper.take(page, "renovation-details");
   });
 
   test("feedback section: thumbs up/down buttons visible", async ({
     authedPage: page,
-    screenshot,
+    screenshotHelper,
   }) => {
     await page.goto("/analysis-photos/mock-ap-1/renovations");
     await expect(page.getByText("Feedback")).toBeVisible({ timeout: 10_000 });
@@ -116,7 +116,7 @@ test.describe("05 — Renovation View", () => {
 
     // Click thumbs up
     await thumbsUp.click();
-    await screenshot.take(page, "thumbs-up-selected");
+    await screenshotHelper.take(page, "thumbs-up-selected");
 
     // Submit feedback button should be present
     await expect(
@@ -124,7 +124,7 @@ test.describe("05 — Renovation View", () => {
     ).toBeVisible();
   });
 
-  test("can submit feedback", async ({ authedPage: page, screenshot }) => {
+  test("can submit feedback", async ({ authedPage: page, screenshotHelper }) => {
     await page.goto("/analysis-photos/mock-ap-1/renovations");
     await expect(page.getByText("Feedback")).toBeVisible({ timeout: 10_000 });
 
@@ -134,7 +134,7 @@ test.describe("05 — Renovation View", () => {
       "Optional: add details about what you liked or would change..."
     );
     await commentBox.fill("Looks great! Love the modern touches.");
-    await screenshot.take(page, "feedback-form-filled");
+    await screenshotHelper.take(page, "feedback-form-filled");
 
     await page.getByRole("button", { name: "Submit Feedback" }).click();
 
@@ -142,12 +142,12 @@ test.describe("05 — Renovation View", () => {
     await expect(page.getByText("Thank you for your feedback!")).toBeVisible({
       timeout: 10_000,
     });
-    await screenshot.take(page, "feedback-submitted");
+    await screenshotHelper.take(page, "feedback-submitted");
   });
 
   test("re-run section shows textarea and button", async ({
     authedPage: page,
-    screenshot,
+    screenshotHelper,
   }) => {
     await page.goto("/analysis-photos/mock-ap-1/renovations");
 
@@ -161,7 +161,7 @@ test.describe("05 — Renovation View", () => {
     await expect(textarea).toBeVisible();
 
     await textarea.fill("Make the colors warmer and add more wood elements");
-    await screenshot.take(page, "rerun-form-filled");
+    await screenshotHelper.take(page, "rerun-form-filled");
 
     const rerunButton = page.getByRole("button", { name: "Re-run Renovation" });
     await expect(rerunButton).toBeVisible();

@@ -1,7 +1,7 @@
 import { test, expect } from "../fixtures";
 
 test.describe("07 — Pricing", () => {
-  test("shows three pricing tiers", async ({ authedPage: page, screenshot }) => {
+  test("shows three pricing tiers", async ({ authedPage: page, screenshotHelper }) => {
     await page.goto("/pricing");
     await expect(page.getByText("Pricing Plans")).toBeVisible({ timeout: 10_000 });
 
@@ -9,10 +9,10 @@ test.describe("07 — Pricing", () => {
     await expect(page.getByRole("heading", { name: "Pro" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Business" })).toBeVisible();
 
-    await screenshot.take(page, "three-tiers");
+    await screenshotHelper.take(page, "three-tiers");
   });
 
-  test("displays correct prices", async ({ authedPage: page, screenshot }) => {
+  test("displays correct prices", async ({ authedPage: page, screenshotHelper }) => {
     await page.goto("/pricing");
     await expect(page.getByText("Pricing Plans")).toBeVisible({ timeout: 10_000 });
 
@@ -20,12 +20,12 @@ test.describe("07 — Pricing", () => {
     await expect(page.getByText("$29/mo")).toBeVisible();
     await expect(page.getByText("$99/mo")).toBeVisible();
 
-    await screenshot.take(page, "tier-prices");
+    await screenshotHelper.take(page, "tier-prices");
   });
 
   test("feature rows are visible for each tier", async ({
     authedPage: page,
-    screenshot,
+    screenshotHelper,
   }) => {
     await page.goto("/pricing");
     await expect(page.getByText("Pricing Plans")).toBeVisible({ timeout: 10_000 });
@@ -38,35 +38,35 @@ test.describe("07 — Pricing", () => {
     await expect(page.getByText("Image Quality").first()).toBeVisible();
     await expect(page.getByText("URL Scraping").first()).toBeVisible();
 
-    await screenshot.take(page, "feature-rows");
+    await screenshotHelper.take(page, "feature-rows");
   });
 
   test("Pro tier is highlighted as most popular", async ({
     authedPage: page,
-    screenshot,
+    screenshotHelper,
   }) => {
     await page.goto("/pricing");
     await expect(page.getByText("Pricing Plans")).toBeVisible({ timeout: 10_000 });
 
     await expect(page.getByText("Most Popular")).toBeVisible();
-    await screenshot.take(page, "pro-highlighted");
+    await screenshotHelper.take(page, "pro-highlighted");
   });
 
   test("responsive: tiers stack on mobile viewport", async ({
     authedPage: page,
-    screenshot,
+    screenshotHelper,
   }) => {
     await page.goto("/pricing");
     await expect(page.getByText("Pricing Plans")).toBeVisible({ timeout: 10_000 });
 
     // Desktop screenshot
     await page.setViewportSize({ width: 1280, height: 800 });
-    await screenshot.take(page, "pricing-desktop");
+    await screenshotHelper.take(page, "pricing-desktop");
 
     // Tablet
     await page.setViewportSize({ width: 768, height: 1024 });
     await page.waitForTimeout(300);
-    await screenshot.take(page, "pricing-tablet");
+    await screenshotHelper.take(page, "pricing-tablet");
 
     // Mobile
     await page.setViewportSize({ width: 375, height: 812 });
@@ -77,7 +77,7 @@ test.describe("07 — Pricing", () => {
     await expect(page.getByRole("heading", { name: "Pro" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Business" })).toBeVisible();
 
-    await screenshot.take(page, "pricing-mobile");
+    await screenshotHelper.take(page, "pricing-mobile");
 
     // Reset viewport
     await page.setViewportSize({ width: 1280, height: 800 });

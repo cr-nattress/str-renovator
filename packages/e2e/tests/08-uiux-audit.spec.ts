@@ -20,7 +20,7 @@ const VIEWPORTS = [
 test.describe("08 — UI/UX Audit", () => {
   test("accessibility audit — axe-core WCAG 2.0/2.1 AA", async ({
     authedPage: page,
-    screenshot,
+    screenshotHelper,
   }) => {
     for (const { name, path } of PAGES_TO_AUDIT) {
       await page.goto(path);
@@ -28,7 +28,7 @@ test.describe("08 — UI/UX Audit", () => {
 
       const result = await runAccessibilityAudit(page);
 
-      await screenshot.take(page, `a11y-${name.toLowerCase()}`);
+      await screenshotHelper.take(page, `a11y-${name.toLowerCase()}`);
 
       // Log violations for the report but don't hard-fail on minor issues
       if (result.violations.length > 0) {
@@ -52,7 +52,7 @@ test.describe("08 — UI/UX Audit", () => {
 
   test("no broken images on key pages", async ({
     authedPage: page,
-    screenshot,
+    screenshotHelper,
   }) => {
     for (const { name, path } of PAGES_TO_AUDIT) {
       await page.goto(path);
@@ -60,7 +60,7 @@ test.describe("08 — UI/UX Audit", () => {
 
       const broken = await findBrokenImages(page);
 
-      await screenshot.take(page, `broken-images-${name.toLowerCase()}`);
+      await screenshotHelper.take(page, `broken-images-${name.toLowerCase()}`);
 
       expect(
         broken,
@@ -72,7 +72,7 @@ test.describe("08 — UI/UX Audit", () => {
   test("no meaningful console errors on key pages", async ({
     authedPage: page,
     consoleErrors,
-    screenshot,
+    screenshotHelper,
   }) => {
     for (const { name, path } of PAGES_TO_AUDIT) {
       // Clear previous errors
@@ -86,7 +86,7 @@ test.describe("08 — UI/UX Audit", () => {
 
       const meaningful = filterConsoleErrors(consoleErrors);
 
-      await screenshot.take(page, `console-errors-${name.toLowerCase()}`);
+      await screenshotHelper.take(page, `console-errors-${name.toLowerCase()}`);
 
       if (meaningful.length > 0) {
         console.log(`\n[Console] ${name} — ${meaningful.length} error(s):`);
@@ -102,7 +102,7 @@ test.describe("08 — UI/UX Audit", () => {
 
   test("responsive: no horizontal overflow at standard viewports", async ({
     authedPage: page,
-    screenshot,
+    screenshotHelper,
   }) => {
     for (const { name, path } of PAGES_TO_AUDIT) {
       await page.goto(path);
@@ -111,7 +111,7 @@ test.describe("08 — UI/UX Audit", () => {
       for (const vp of VIEWPORTS) {
         const result = await checkResponsiveOverflow(page, vp.width);
 
-        await screenshot.take(
+        await screenshotHelper.take(
           page,
           `overflow-${name.toLowerCase()}-${vp.name}`
         );
@@ -129,7 +129,7 @@ test.describe("08 — UI/UX Audit", () => {
 
   test("loading states render correctly", async ({
     authedPage: page,
-    screenshot,
+    screenshotHelper,
   }) => {
     // Intercept API to delay response so loading state is visible
     await page.route("**/api/v1/properties", async (route) => {
@@ -146,17 +146,17 @@ test.describe("08 — UI/UX Audit", () => {
     const wasLoading = await loadingText.isVisible().catch(() => false);
 
     if (wasLoading) {
-      await screenshot.take(page, "loading-state-dashboard");
+      await screenshotHelper.take(page, "loading-state-dashboard");
     }
 
     // Wait for actual content
     await expect(page.getByText("Your Properties")).toBeVisible({ timeout: 15_000 });
-    await screenshot.take(page, "loaded-state-dashboard");
+    await screenshotHelper.take(page, "loaded-state-dashboard");
   });
 
   test("empty states have clear call-to-action", async ({
     authedPage: page,
-    screenshot,
+    screenshotHelper,
   }) => {
     // Mock empty properties response
     await page.route("**/api/v1/properties", async (route) => {
@@ -179,6 +179,6 @@ test.describe("08 — UI/UX Audit", () => {
     await expect(page.getByText("Add your first property")).toBeVisible();
     await expect(page.getByText("Add Your First Property")).toBeVisible();
 
-    await screenshot.take(page, "empty-state-cta");
+    await screenshotHelper.take(page, "empty-state-cta");
   });
 });

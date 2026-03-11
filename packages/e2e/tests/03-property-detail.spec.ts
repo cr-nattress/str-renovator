@@ -3,7 +3,7 @@ import { test, expect } from "../fixtures";
 test.describe("03 — Property Detail", () => {
   test("shows three tabs: Photos, Analyses, Overview", async ({
     authedPage: page,
-    screenshot,
+    screenshotHelper,
     seed,
   }) => {
     await page.goto(`/properties/${seed.propertyId}`);
@@ -13,12 +13,12 @@ test.describe("03 — Property Detail", () => {
     await expect(page.getByRole("button", { name: "Analyses" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Overview" })).toBeVisible();
 
-    await screenshot.take(page, "property-detail-tabs");
+    await screenshotHelper.take(page, "property-detail-tabs");
   });
 
   test("Photos tab shows photo uploader", async ({
     authedPage: page,
-    screenshot,
+    screenshotHelper,
     seed,
   }) => {
     await page.goto(`/properties/${seed.propertyId}`);
@@ -29,12 +29,12 @@ test.describe("03 — Property Detail", () => {
       page.getByText("Click or drag photos here to upload")
     ).toBeVisible();
 
-    await screenshot.take(page, "photo-uploader-visible");
+    await screenshotHelper.take(page, "photo-uploader-visible");
   });
 
   test("URL import form is visible on Photos tab", async ({
     authedPage: page,
-    screenshot,
+    screenshotHelper,
     seed,
   }) => {
     await page.goto(`/properties/${seed.propertyId}`);
@@ -44,12 +44,12 @@ test.describe("03 — Property Detail", () => {
       page.getByPlaceholder("Paste listing URL to import photos...")
     ).toBeVisible();
 
-    await screenshot.take(page, "url-import-form");
+    await screenshotHelper.take(page, "url-import-form");
   });
 
   test("Analyses tab shows empty state when no analyses exist", async ({
     authedPage: page,
-    screenshot,
+    screenshotHelper,
     seed,
   }) => {
     await page.goto(`/properties/${seed.propertyId}`);
@@ -68,12 +68,12 @@ test.describe("03 — Property Detail", () => {
     }
     await expect(runButton).toBeVisible();
 
-    await screenshot.take(page, "analyses-tab-empty");
+    await screenshotHelper.take(page, "analyses-tab-empty");
   });
 
   test("Overview tab shows property form with editable fields", async ({
     authedPage: page,
-    screenshot,
+    screenshotHelper,
     seed,
   }) => {
     await page.goto(`/properties/${seed.propertyId}`);
@@ -87,12 +87,12 @@ test.describe("03 — Property Detail", () => {
     await expect(nameInput).toBeVisible();
     await expect(nameInput).toHaveValue(seed.propertyName);
 
-    await screenshot.take(page, "overview-tab-form");
+    await screenshotHelper.take(page, "overview-tab-form");
   });
 
   test("Overview tab shows address fields", async ({
     authedPage: page,
-    screenshot,
+    screenshotHelper,
     seed,
   }) => {
     await page.goto(`/properties/${seed.propertyId}`);
@@ -107,12 +107,12 @@ test.describe("03 — Property Detail", () => {
     await expect(page.getByPlaceholder("State")).toBeVisible();
     await expect(page.getByPlaceholder("ZIP")).toBeVisible();
 
-    await screenshot.take(page, "overview-tab-address-fields");
+    await screenshotHelper.take(page, "overview-tab-address-fields");
   });
 
   test("Design Journey link is present", async ({
     authedPage: page,
-    screenshot,
+    screenshotHelper,
     seed,
   }) => {
     await page.goto(`/properties/${seed.propertyId}`);
@@ -125,6 +125,6 @@ test.describe("03 — Property Detail", () => {
       `/properties/${seed.propertyId}/journey`
     );
 
-    await screenshot.take(page, "design-journey-link");
+    await screenshotHelper.take(page, "design-journey-link");
   });
 });

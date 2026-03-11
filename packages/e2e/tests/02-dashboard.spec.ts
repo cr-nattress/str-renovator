@@ -3,7 +3,7 @@ import { test, expect } from "../fixtures";
 test.describe("02 — Dashboard", () => {
   test("shows empty state with CTA when no properties exist", async ({
     authedPage: page,
-    screenshot,
+    screenshotHelper,
   }) => {
     // Clean up any existing E2E properties first via the UI
     await page.goto("/");
@@ -17,15 +17,15 @@ test.describe("02 — Dashboard", () => {
     const isEmpty = await emptyState.isVisible().catch(() => false);
     if (isEmpty) {
       await expect(addFirstButton).toBeVisible();
-      await screenshot.take(page, "dashboard-empty-state");
+      await screenshotHelper.take(page, "dashboard-empty-state");
     } else {
-      await screenshot.take(page, "dashboard-with-properties");
+      await screenshotHelper.take(page, "dashboard-with-properties");
     }
   });
 
   test("add property modal opens and closes", async ({
     authedPage: page,
-    screenshot,
+    screenshotHelper,
   }) => {
     await page.goto("/");
     await expect(page.getByText("Your Properties")).toBeVisible({ timeout: 10_000 });
@@ -38,17 +38,17 @@ test.describe("02 — Dashboard", () => {
     await expect(
       page.getByPlaceholder("e.g. Mountain View Cabin")
     ).toBeVisible();
-    await screenshot.take(page, "add-property-modal-open");
+    await screenshotHelper.take(page, "add-property-modal-open");
 
     // Close modal via X button
     await page.locator("button:has-text('×')").click();
     await expect(page.getByText("New Property")).not.toBeVisible();
-    await screenshot.take(page, "add-property-modal-closed");
+    await screenshotHelper.take(page, "add-property-modal-closed");
   });
 
   test("can create a new property via modal", async ({
     authedPage: page,
-    screenshot,
+    screenshotHelper,
     api,
   }) => {
     await page.goto("/");
@@ -63,7 +63,7 @@ test.describe("02 — Dashboard", () => {
       .getByPlaceholder("Brief description of the property...")
       .fill("Created from dashboard E2E test");
 
-    await screenshot.take(page, "property-form-filled");
+    await screenshotHelper.take(page, "property-form-filled");
 
     // Submit
     await page.getByRole("button", { name: "Create Property" }).click();
@@ -71,7 +71,7 @@ test.describe("02 — Dashboard", () => {
     // Modal should close and property card should appear
     await expect(page.getByText("New Property")).not.toBeVisible({ timeout: 10_000 });
     await expect(page.getByText("[E2E] Dashboard Test")).toBeVisible({ timeout: 10_000 });
-    await screenshot.take(page, "property-created");
+    await screenshotHelper.take(page, "property-created");
 
     // Cleanup: delete the property we just created
     const properties = await api.get<Array<{ id: string; name: string }>>(
@@ -85,7 +85,7 @@ test.describe("02 — Dashboard", () => {
 
   test("property card navigates to property detail", async ({
     authedPage: page,
-    screenshot,
+    screenshotHelper,
     seed,
   }) => {
     await page.goto("/");
@@ -93,13 +93,13 @@ test.describe("02 — Dashboard", () => {
 
     // The seeded property should be visible
     await expect(page.getByText(seed.propertyName)).toBeVisible({ timeout: 10_000 });
-    await screenshot.take(page, "property-card-visible");
+    await screenshotHelper.take(page, "property-card-visible");
 
     // Click the property card
     await page.getByText(seed.propertyName).click();
 
     // Should navigate to property detail
     await expect(page).toHaveURL(new RegExp(`/properties/${seed.propertyId}`));
-    await screenshot.take(page, "navigated-to-property-detail");
+    await screenshotHelper.take(page, "navigated-to-property-detail");
   });
 });

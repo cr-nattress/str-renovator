@@ -58,7 +58,7 @@ const MOCK_ACTION_PLAN = [
 test.describe("04 — Analysis View", () => {
   test("shows progress component for in-progress analysis", async ({
     authedPage: page,
-    screenshot,
+    screenshotHelper,
   }) => {
     // Mock an in-progress analysis
     const mockInProgress = {
@@ -93,12 +93,12 @@ test.describe("04 — Analysis View", () => {
     await expect(page.getByText("Analysis in Progress")).toBeVisible({
       timeout: 10_000,
     });
-    await screenshot.take(page, "analysis-in-progress");
+    await screenshotHelper.take(page, "analysis-in-progress");
   });
 
   test("shows SSE live indicator when connected", async ({
     authedPage: page,
-    screenshot,
+    screenshotHelper,
   }) => {
     const mockInProgress = {
       ...MOCK_COMPLETED_ANALYSIS,
@@ -140,12 +140,12 @@ test.describe("04 — Analysis View", () => {
 
     // One of these should be visible
     expect(hasLive || hasConnecting).toBeTruthy();
-    await screenshot.take(page, "sse-indicator");
+    await screenshotHelper.take(page, "sse-indicator");
   });
 
   test("completed analysis shows assessment and photo cards", async ({
     authedPage: page,
-    screenshot,
+    screenshotHelper,
   }) => {
     await page.route("**/api/v1/analyses/*", async (route) => {
       const url = route.request().url();
@@ -167,7 +167,7 @@ test.describe("04 — Analysis View", () => {
       timeout: 10_000,
     });
     await expect(page.getByText("charming mountain cabin")).toBeVisible();
-    await screenshot.take(page, "completed-assessment");
+    await screenshotHelper.take(page, "completed-assessment");
 
     // Style Direction
     await expect(page.getByText("Style Direction")).toBeVisible();
@@ -176,12 +176,12 @@ test.describe("04 — Analysis View", () => {
     // Photo Analysis section
     await expect(page.getByText("Photo Analysis")).toBeVisible();
     await expect(page.getByText("Living Room")).toBeVisible();
-    await screenshot.take(page, "completed-photo-cards");
+    await screenshotHelper.take(page, "completed-photo-cards");
   });
 
   test("completed analysis shows action plan table", async ({
     authedPage: page,
-    screenshot,
+    screenshotHelper,
   }) => {
     const analysisWithPlan = {
       ...MOCK_COMPLETED_ANALYSIS,
@@ -206,6 +206,6 @@ test.describe("04 — Analysis View", () => {
     await expect(page.getByText("Action Plan")).toBeVisible({ timeout: 10_000 });
     await expect(page.getByText("Replace living room furniture")).toBeVisible();
     await expect(page.getByText("Paint accent wall")).toBeVisible();
-    await screenshot.take(page, "action-plan-table");
+    await screenshotHelper.take(page, "action-plan-table");
   });
 });

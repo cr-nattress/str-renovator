@@ -5,7 +5,7 @@ test.describe("09 — Listing Data & Location Profile", () => {
     authedPage: page,
     api,
     seed,
-    screenshot,
+    screenshotHelper,
   }) => {
     // Patch property with mock scraped data
     await api.patch(`/api/v1/properties/${seed.propertyId}`, {
@@ -28,14 +28,14 @@ test.describe("09 — Listing Data & Location Profile", () => {
     await expect(page.getByText("Listing Data")).toBeVisible();
     await expect(page.getByText("Cozy Mountain Retreat")).toBeVisible();
 
-    await screenshot.take(page, "scraped-data-display");
+    await screenshotHelper.take(page, "scraped-data-display");
   });
 
   test("location profile display renders when property has location_profile", async ({
     authedPage: page,
     api,
     seed,
-    screenshot,
+    screenshotHelper,
   }) => {
     // Patch property with mock location profile
     await api.patch(`/api/v1/properties/${seed.propertyId}`, {
@@ -59,14 +59,14 @@ test.describe("09 — Listing Data & Location Profile", () => {
     await expect(page.getByText("A charming mountain town")).toBeVisible();
     await expect(page.getByText("Refresh")).toBeVisible();
 
-    await screenshot.take(page, "location-profile-display");
+    await screenshotHelper.take(page, "location-profile-display");
   });
 
   test("research location button appears when city/state present but no profile", async ({
     authedPage: page,
     api,
     seed,
-    screenshot,
+    screenshotHelper,
   }) => {
     // Patch property with city/state but no location profile
     await api.patch(`/api/v1/properties/${seed.propertyId}`, {
@@ -85,6 +85,6 @@ test.describe("09 — Listing Data & Location Profile", () => {
       page.getByRole("button", { name: "Research Location" })
     ).toBeVisible();
 
-    await screenshot.take(page, "research-location-button");
+    await screenshotHelper.take(page, "research-location-button");
   });
 });

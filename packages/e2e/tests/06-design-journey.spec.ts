@@ -69,7 +69,7 @@ const MOCK_SUMMARY = {
 test.describe("06 — Design Journey", () => {
   test("shows empty state when no journey items", async ({
     authedPage: page,
-    screenshot,
+    screenshotHelper,
     seed,
   }) => {
     await page.route(`**/api/v1/properties/${seed.propertyId}/journey`, async (route) => {
@@ -92,12 +92,12 @@ test.describe("06 — Design Journey", () => {
 
     await expect(page.getByText("Design Journey")).toBeVisible({ timeout: 10_000 });
     await expect(page.getByText("No journey items yet.")).toBeVisible();
-    await screenshot.take(page, "journey-empty-state");
+    await screenshotHelper.take(page, "journey-empty-state");
   });
 
   test("shows kanban sections grouped by status", async ({
     authedPage: page,
-    screenshot,
+    screenshotHelper,
     seed,
   }) => {
     await page.route(`**/api/v1/properties/${seed.propertyId}/journey`, async (route) => {
@@ -124,12 +124,12 @@ test.describe("06 — Design Journey", () => {
     await expect(page.getByText(/In Progress/)).toBeVisible();
     await expect(page.getByText(/Completed/)).toBeVisible();
 
-    await screenshot.take(page, "journey-kanban-sections");
+    await screenshotHelper.take(page, "journey-kanban-sections");
   });
 
   test("shows budget tracker with estimated and actual costs", async ({
     authedPage: page,
-    screenshot,
+    screenshotHelper,
     seed,
   }) => {
     await page.route(`**/api/v1/properties/${seed.propertyId}/journey`, async (route) => {
@@ -155,12 +155,12 @@ test.describe("06 — Design Journey", () => {
     await expect(page.getByText("Estimated")).toBeVisible();
     await expect(page.getByText("Actual")).toBeVisible();
 
-    await screenshot.take(page, "budget-tracker");
+    await screenshotHelper.take(page, "budget-tracker");
   });
 
   test("action item card shows status dropdown", async ({
     authedPage: page,
-    screenshot,
+    screenshotHelper,
     seed,
   }) => {
     await page.route(`**/api/v1/properties/${seed.propertyId}/journey`, async (route) => {
@@ -198,13 +198,13 @@ test.describe("06 — Design Journey", () => {
 
     // Change status
     await statusSelect.selectOption("in_progress");
-    await screenshot.take(page, "status-dropdown-changed");
+    await screenshotHelper.take(page, "status-dropdown-changed");
 
     // Save button should appear when dirty
     const saveButton = page.getByRole("button", { name: "Save Changes" }).first();
     const hasSave = await saveButton.isVisible().catch(() => false);
     if (hasSave) {
-      await screenshot.take(page, "save-changes-button");
+      await screenshotHelper.take(page, "save-changes-button");
     }
   });
 });

@@ -1,6 +1,6 @@
 import { mergeTests } from "@playwright/test";
 import { authFixture } from "./auth.fixture";
-import { screenshotFixture } from "./screenshot.fixture";
+import { screenshotHelperFixture } from "./screenshot.fixture";
 import { apiFixture } from "./api.fixture";
 import { seedFixture } from "./seed.fixture";
 
@@ -11,7 +11,7 @@ export { type SeedData } from "./seed.fixture";
 
 export const test = mergeTests(
   authFixture,
-  screenshotFixture,
+  screenshotHelperFixture,
   apiFixture,
   seedFixture
 );

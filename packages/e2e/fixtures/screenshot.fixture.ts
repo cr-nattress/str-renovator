@@ -8,10 +8,10 @@ export interface ScreenshotHelper {
 
 const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
 
-export const screenshotFixture = base.extend<{
-  screenshot: ScreenshotHelper;
+export const screenshotHelperFixture = base.extend<{
+  screenshotHelper: ScreenshotHelper;
 }>({
-  screenshot: [async ({}, use, testInfo: TestInfo) => {
+  screenshotHelper: [async ({}, use, testInfo: TestInfo) => {
     const suiteName = testInfo?.file
       ? path.basename(testInfo.file, ".spec.ts")
       : "unknown-suite";
@@ -23,7 +23,7 @@ export const screenshotFixture = base.extend<{
     const dir = path.resolve(
       __dirname,
       "..",
-      "screenshots",
+      "screenshotHelpers",
       timestamp,
       suiteName,
       testSlug

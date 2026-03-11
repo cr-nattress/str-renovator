@@ -28,6 +28,7 @@ export default defineConfig({
     {
       name: "global-setup",
       testMatch: /global\.setup\.ts/,
+      testDir: ".",
       teardown: "global-teardown",
     },
     {
@@ -41,6 +42,7 @@ export default defineConfig({
     {
       name: "global-teardown",
       testMatch: /global\.teardown\.ts/,
+      testDir: ".",
     },
   ],
 });
