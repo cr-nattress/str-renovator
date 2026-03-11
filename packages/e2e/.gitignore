@@ -3,3 +3,6 @@ reports/
 .playwright/
 test-results/
 .env.test
+
+# Saved auth state for manual login fallback
+crawl/auth/.auth-state.json
