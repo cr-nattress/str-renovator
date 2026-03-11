@@ -32,6 +32,55 @@ export async function create(
   return item as DbDesignJourneyItem;
 }
 
+export async function upsertByTitle(
+  data: Partial<DbDesignJourneyItem> & {
+    property_id: string;
+    user_id: string;
+    priority: number;
+    title: string;
+    impact: string;
+    rooms_affected: string[];
+  }
+): Promise<DbDesignJourneyItem> {
+  // Try insert first
+  const { data: item, error } = await supabase
+    .from("design_journey_items")
+    .insert(data)
+    .select()
+    .single();
+
+  if (error && error.code === "23505") {
+    // Unique violation — update the existing row instead
+    const { data: existing, error: findErr } = await supabase
+      .from("design_journey_items")
+      .select("*")
+      .eq("property_id", data.property_id)
+      .ilike("title", data.title)
+      .single();
+    if (findErr) throw findErr;
+
+    const { data: updated, error: updateErr } = await supabase
+      .from("design_journey_items")
+      .update({
+        analysis_id: data.analysis_id,
+        priority: data.priority,
+        estimated_cost: data.estimated_cost,
+        impact: data.impact,
+        rooms_affected: data.rooms_affected,
+        source_photo_id: data.source_photo_id,
+        image_status: data.image_status,
+      })
+      .eq("id", existing!.id)
+      .select()
+      .single();
+    if (updateErr) throw updateErr;
+    return updated as DbDesignJourneyItem;
+  }
+
+  if (error) throw error;
+  return item as DbDesignJourneyItem;
+}
+
 export async function findByIdAndUser(
   id: string,
   userId: string
@@ -70,18 +119,6 @@ export async function updateById(
     .update(data)
     .eq("id", id);
   if (error) throw error;
-}
-
-export async function findExistingTitles(
-  propertyId: string,
-  titles: string[]
-): Promise<Set<string>> {
-  const { data } = await supabase
-    .from("design_journey_items")
-    .select("title")
-    .eq("property_id", propertyId)
-    .in("title", titles);
-  return new Set((data ?? []).map((d: any) => d.title));
 }
 
 export async function insertMany(

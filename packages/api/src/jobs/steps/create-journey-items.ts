@@ -44,8 +44,8 @@ export async function createJourneyItems(input: CreateJourneyItemsInput): Promis
   // Dedup: query existing journey items for this property
   const existingItems = await journeyRepo.listByProperty(propertyId);
 
-  const existingByKey = new Map(
-    existingItems.map((i) => [`${i.priority}::${i.title}`, i])
+  const existingByTitle = new Map(
+    existingItems.map((i) => [i.title.toLowerCase(), i])
   );
 
   for (const action of analysis.action_plan) {
@@ -59,8 +59,7 @@ export async function createJourneyItems(input: CreateJourneyItemsInput): Promis
     }
     if (!sourcePhotoId) sourcePhotoId = firstPhotoId;
 
-    const dedupKey = `${action.priority}::${action.item}`;
-    const existing = existingByKey.get(dedupKey);
+    const existing = existingByTitle.get(action.item.toLowerCase());
 
     if (existing) {
       if (existing.image_status === "completed" && existing.image_storage_path) continue;
@@ -88,7 +87,7 @@ export async function createJourneyItems(input: CreateJourneyItemsInput): Promis
     const imageStatus = sourcePhotoId ? "pending" : "skipped";
     let journeyItem: { id: string };
     try {
-      journeyItem = await journeyRepo.create({
+      journeyItem = await journeyRepo.upsertByTitle({
         property_id: propertyId,
         analysis_id: analysisId,
         user_id: userId,
