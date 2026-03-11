@@ -66,7 +66,9 @@ export const seedFixture = base.extend<{
       throw new Error(`Failed to create test property: ${propRes.status}`);
     }
 
-    const property: { id: string; name: string } = await propRes.json();
+    const result = await propRes.json();
+    // POST /properties returns CommandResult<DbProperty> — extract .data
+    const property: { id: string; name: string } = result.data ?? result;
 
     // Upload a test photo
     const formData = new FormData();
@@ -87,7 +89,11 @@ export const seedFixture = base.extend<{
 
     const photoIds: string[] = [];
     if (photoRes.ok) {
-      const photos: Array<{ id: string }> = await photoRes.json();
+      const photoResult = await photoRes.json();
+      // POST /photos returns CommandResult<DbPhoto[]> — extract .data
+      const photos: Array<{ id: string }> = Array.isArray(photoResult)
+        ? photoResult
+        : (photoResult.data ?? []);
       photoIds.push(...photos.map((p) => p.id));
     }
 

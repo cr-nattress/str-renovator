@@ -55,10 +55,9 @@ const MOCK_JOURNEY_ITEMS = [
 ];
 
 const MOCK_SUMMARY = {
-  total_items: 3,
-  total_estimated: 3600,
-  total_actual: 1000,
-  by_status: {
+  totalEstimated: 3600,
+  totalActual: 1000,
+  itemsByStatus: {
     not_started: 1,
     in_progress: 1,
     completed: 1,
@@ -77,7 +76,7 @@ test.describe("06 — Design Journey", () => {
         await route.fulfill({
           status: 200,
           contentType: "application/json",
-          body: JSON.stringify({ total_items: 0, total_estimated: 0, total_actual: 0, by_status: {} }),
+          body: JSON.stringify({ totalEstimated: 0, totalActual: 0, itemsByStatus: {} }),
         });
       } else {
         await route.fulfill({
@@ -90,7 +89,7 @@ test.describe("06 — Design Journey", () => {
 
     await page.goto(`/properties/${seed.propertyId}/journey`);
 
-    await expect(page.getByText("Design Journey")).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole("heading", { name: "Design Journey" })).toBeVisible({ timeout: 10_000 });
     await expect(page.getByText("No journey items yet.")).toBeVisible();
     await screenshotHelper.take(page, "journey-empty-state");
   });
@@ -117,12 +116,12 @@ test.describe("06 — Design Journey", () => {
     });
 
     await page.goto(`/properties/${seed.propertyId}/journey`);
-    await expect(page.getByText("Design Journey")).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole("heading", { name: "Design Journey" })).toBeVisible({ timeout: 10_000 });
 
-    // Check status sections
-    await expect(page.getByText(/Not Started/)).toBeVisible();
-    await expect(page.getByText(/In Progress/)).toBeVisible();
-    await expect(page.getByText(/Completed/)).toBeVisible();
+    // Check status section headings (not the <option> elements in dropdowns)
+    await expect(page.getByRole("heading", { name: /Not Started/ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /In Progress/ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Completed/ })).toBeVisible();
 
     await screenshotHelper.take(page, "journey-kanban-sections");
   });
@@ -153,7 +152,7 @@ test.describe("06 — Design Journey", () => {
 
     // Budget tracker shows estimated and actual
     await expect(page.getByText("Estimated")).toBeVisible();
-    await expect(page.getByText("Actual")).toBeVisible();
+    await expect(page.getByText("Actual", { exact: true })).toBeVisible();
 
     await screenshotHelper.take(page, "budget-tracker");
   });

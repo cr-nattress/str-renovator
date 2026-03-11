@@ -22,7 +22,7 @@ test.describe("09 — Listing Data & Location Profile", () => {
     await expect(page.getByText(seed.propertyName)).toBeVisible({ timeout: 10_000 });
 
     // Switch to Overview tab
-    await page.getByRole("button", { name: "Overview" }).click();
+    await page.getByRole("tab", { name: "Overview" }).click();
 
     // Scraped data card should be visible
     await expect(page.getByText("Listing Data")).toBeVisible();
@@ -51,11 +51,11 @@ test.describe("09 — Listing Data & Location Profile", () => {
     await expect(page.getByText(seed.propertyName)).toBeVisible({ timeout: 10_000 });
 
     // Switch to Overview tab
-    await page.getByRole("button", { name: "Overview" }).click();
+    await page.getByRole("tab", { name: "Overview" }).click();
 
     // Location profile card should be visible
     await expect(page.getByText("Location Profile")).toBeVisible();
-    await expect(page.getByText("mountain")).toBeVisible();
+    await expect(page.getByText("mountain", { exact: true })).toBeVisible();
     await expect(page.getByText("A charming mountain town")).toBeVisible();
     await expect(page.getByText("Refresh")).toBeVisible();
 
@@ -78,7 +78,7 @@ test.describe("09 — Listing Data & Location Profile", () => {
     await expect(page.getByText(seed.propertyName)).toBeVisible({ timeout: 10_000 });
 
     // Switch to Overview tab
-    await page.getByRole("button", { name: "Overview" }).click();
+    await page.getByRole("tab", { name: "Overview" }).click();
 
     // Research Location button should be visible
     await expect(

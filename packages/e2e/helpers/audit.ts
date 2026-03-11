@@ -17,6 +17,9 @@ export async function runAccessibilityAudit(
 ): Promise<AccessibilityResult> {
   const results = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+    .exclude("[data-clerk]")       // Clerk-generated UI — third-party, outside our control
+    .exclude(".cl-rootBox")
+    .exclude(".cl-userButton-root")
     .analyze();
 
   return {

@@ -10,7 +10,7 @@ test.describe("02 — Dashboard", () => {
     await expect(page.getByText("Your Properties")).toBeVisible({ timeout: 10_000 });
 
     // If no properties, expect the empty state
-    const emptyState = page.getByText("No properties yet.");
+    const emptyState = page.getByText("Ready to transform your first property?");
     const addFirstButton = page.getByText("Add Your First Property");
 
     // Either empty state or property cards should be visible
@@ -33,16 +33,18 @@ test.describe("02 — Dashboard", () => {
     // Click "Add Property" button in the header
     await page.getByRole("button", { name: "Add Property" }).first().click();
 
-    // Modal should appear
-    await expect(page.getByText("New Property")).toBeVisible();
+    // Modal should appear with "Add Property" title (intent box mode)
+    await expect(page.getByText("Add Property").first()).toBeVisible();
     await expect(
-      page.getByPlaceholder("e.g. Mountain View Cabin")
+      page.getByPlaceholder("Paste a listing URL or type a property name...")
     ).toBeVisible();
     await screenshotHelper.take(page, "add-property-modal-open");
 
-    // Close modal via X button
-    await page.locator("button:has-text('×')").click();
-    await expect(page.getByText("New Property")).not.toBeVisible();
+    // Close modal via X button (sr-only "Close" label)
+    await page.getByRole("button", { name: "Close" }).click();
+    await expect(
+      page.getByPlaceholder("Paste a listing URL or type a property name...")
+    ).not.toBeVisible();
     await screenshotHelper.take(page, "add-property-modal-closed");
   });
 
@@ -55,22 +57,17 @@ test.describe("02 — Dashboard", () => {
     await expect(page.getByText("Your Properties")).toBeVisible({ timeout: 10_000 });
 
     await page.getByRole("button", { name: "Add Property" }).first().click();
-    await expect(page.getByText("New Property")).toBeVisible();
 
-    // Fill out the form
-    await page.getByPlaceholder("e.g. Mountain View Cabin").fill("[E2E] Dashboard Test");
-    await page
-      .getByPlaceholder("Brief description of the property...")
-      .fill("Created from dashboard E2E test");
+    // Intent box: type a property name and submit
+    await page.getByPlaceholder("Paste a listing URL or type a property name...").fill("[E2E] Dashboard Test");
 
-    await screenshotHelper.take(page, "property-form-filled");
+    await screenshotHelper.take(page, "property-intent-filled");
 
-    // Submit
+    // Submit via "Create Property" button
     await page.getByRole("button", { name: "Create Property" }).click();
 
-    // Modal should close and property card should appear
-    await expect(page.getByText("New Property")).not.toBeVisible({ timeout: 10_000 });
-    await expect(page.getByText("[E2E] Dashboard Test")).toBeVisible({ timeout: 10_000 });
+    // Should navigate to the new property detail page
+    await expect(page).toHaveURL(/\/properties\//, { timeout: 10_000 });
     await screenshotHelper.take(page, "property-created");
 
     // Cleanup: delete the property we just created
