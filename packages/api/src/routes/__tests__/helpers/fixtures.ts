@@ -52,6 +52,7 @@ export function makeProperty(
     scraped_data: null,
     location_profile: null,
     property_profile: null,
+    review_analysis: null,
     created_at: "2026-01-01T00:00:00Z",
     updated_at: "2026-01-01T00:00:00Z",
     ...overrides,

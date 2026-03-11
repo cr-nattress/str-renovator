@@ -1,19 +1,48 @@
-import { useParams, Link } from "react-router-dom";
-import { useAnalysis, useUpdateAnalysis } from "../api/analyses";
+import { useCallback } from "react";
+import { useParams, Link, useNavigate } from "react-router-dom";
+import { useAnalysis, useUpdateAnalysis, useArchiveAnalysis } from "../api/analyses";
+import { useCreateAnalysis } from "../api/analyses";
 import { useRealtimeUpdates } from "../hooks/useRealtimeUpdates";
 import { AnalysisProgress } from "../components/analysis/AnalysisProgress";
 import { PropertyAssessment } from "../components/analysis/PropertyAssessment";
 import { PhotoAnalysisCard } from "../components/analysis/PhotoAnalysisCard";
 import { ActionPlanTable } from "../components/analysis/ActionPlanTable";
+import { ActionBar } from "@/components/ui/action-bar";
 import { useJourneyItems } from "../api/journey";
 import { AnalysisViewSkeleton } from "../components/skeletons";
+import type { AvailableAction } from "@str-renovator/shared";
 
 export function AnalysisView() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const { data: analysis, isLoading } = useAnalysis(id!);
   const updateAnalysis = useUpdateAnalysis(id!);
   const realtime = useRealtimeUpdates(id!);
   const { data: journeyItems } = useJourneyItems(analysis?.property_id ?? "");
+  const archiveAnalysis = useArchiveAnalysis(analysis?.property_id ?? "");
+  const createAnalysis = useCreateAnalysis(analysis?.property_id ?? "");
+
+  const handleAction = useCallback(
+    (action: AvailableAction) => {
+      if (!analysis) return;
+      switch (action.command) {
+        case "view-action-plan":
+          navigate(`/properties/${analysis.property_id}/journey`);
+          break;
+        case "archive-analysis":
+          archiveAnalysis.mutate(analysis.id, {
+            onSuccess: () => navigate(`/properties/${analysis.property_id}`),
+          });
+          break;
+        case "retry-analysis":
+          createAnalysis.mutate(undefined, {
+            onSuccess: (newAnalysis) => navigate(`/analyses/${newAnalysis.id}`),
+          });
+          break;
+      }
+    },
+    [analysis, archiveAnalysis, createAnalysis, navigate],
+  );
 
   if (isLoading || !analysis) {
     return <AnalysisViewSkeleton />;
@@ -35,9 +64,14 @@ export function AnalysisView() {
         &larr; Back to Property
       </Link>
 
-      <h1 className="text-2xl font-bold text-gray-900 mt-3 mb-6">
-        Analysis Results
-      </h1>
+      <div className="flex items-center justify-between mt-3 mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">
+          Analysis Results
+        </h1>
+        {analysis.availableActions && analysis.availableActions.length > 0 && (
+          <ActionBar actions={analysis.availableActions} onAction={handleAction} />
+        )}
+      </div>
 
       {!isComplete && (
         <div className="mb-6">

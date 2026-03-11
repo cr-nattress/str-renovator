@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { AlertTriangle, ImageIcon } from "lucide-react";
+import { DownloadButton } from "@/components/ui/download-button";
 import type {
   JourneyStatus,
-  Priority,
   UpdateJourneyItemDto,
 } from "@str-renovator/shared";
 import type { JourneyItemWithImage } from "../../api/journey";
@@ -13,12 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-
-const IMPACT_VARIANT: Record<Priority, "destructive" | "secondary" | "default"> = {
-  high: "destructive",
-  medium: "secondary",
-  low: "default",
-};
+import { PRIORITY_BADGE_VARIANT } from "../properties/shared-renderers";
 
 const STATUS_OPTIONS: { value: JourneyStatus; label: string }[] = [
   { value: "not_started", label: "Not Started" },
@@ -53,13 +48,20 @@ export function ActionItemCard({ item, onUpdate, isSaving }: Props) {
   return (
     <Card className="overflow-hidden">
       {item.image_status === "completed" && item.image_url && (
-        <Link to={`/journey/${item.id}`} className="block aspect-video w-full overflow-hidden hover:opacity-90 transition-opacity">
-          <img
-            src={item.image_url}
-            alt={item.title}
-            className="w-full h-full object-cover"
+        <div className="relative group">
+          <Link to={`/journey/${item.id}`} className="block aspect-video w-full overflow-hidden bg-muted hover:opacity-90 transition-opacity">
+            <img
+              src={item.image_url}
+              alt={item.title}
+              className="w-full h-full object-contain"
+            />
+          </Link>
+          <DownloadButton
+            url={item.image_url}
+            filename={`${item.title}.png`}
+            className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-150"
           />
-        </Link>
+        </div>
       )}
       {(item.image_status === "pending" || item.image_status === "processing") && (
         <div className="aspect-video w-full bg-muted animate-pulse flex items-center justify-center">
@@ -88,7 +90,7 @@ export function ActionItemCard({ item, onUpdate, isSaving }: Props) {
               <Link to={`/journey/${item.id}`} className="font-semibold hover:text-primary transition-colors">
                 {item.title}
               </Link>
-              <Badge variant={IMPACT_VARIANT[item.impact]}>
+              <Badge variant={PRIORITY_BADGE_VARIANT[item.impact]}>
                 {item.impact} impact
               </Badge>
             </div>

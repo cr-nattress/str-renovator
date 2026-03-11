@@ -6,7 +6,7 @@ export interface ScrapeJob {
   id: string;
   property_id: string;
   listing_url: string;
-  status: "pending" | "scraping" | "extracting_data" | "downloading" | "researching_location" | "synthesizing" | "completed" | "failed";
+  status: "pending" | "scraping" | "extracting_data" | "analyzing_reviews" | "downloading" | "researching_location" | "synthesizing" | "completed" | "failed";
   total_photos: number;
   downloaded_photos: number;
   error: string | null;

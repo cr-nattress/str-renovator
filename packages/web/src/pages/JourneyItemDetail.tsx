@@ -3,6 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { useJourneyItem, useUpdateJourneyItem } from "../api/journey";
 import { PhotoCompare } from "../components/photos/PhotoCompare";
 import { JourneyItemDetailSkeleton } from "../components/skeletons";
+import { DownloadButton } from "@/components/ui/download-button";
 import type {
   JourneyStatus,
   Priority,
@@ -177,11 +178,16 @@ export function JourneyItemDetail() {
               <span className="text-xs text-amber-400">Couldn't be matched to a room photo</span>
             </div>
           ) : hasAfterImage ? (
-            <div className="aspect-video w-full rounded-lg overflow-hidden">
+            <div className="aspect-video w-full rounded-lg overflow-hidden bg-muted relative group">
               <img
                 src={item.image_url!}
                 alt={item.title}
-                className="w-full h-full object-cover"
+                className="w-full h-full object-contain"
+              />
+              <DownloadButton
+                url={item.image_url!}
+                filename={`${item.title}.png`}
+                className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-150"
               />
             </div>
           ) : (

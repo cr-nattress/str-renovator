@@ -1,11 +1,23 @@
-import {
-  analysisQueue,
-  renovationQueue,
-  scrapeQueue,
-  actionImageQueue,
-  locationResearchQueue,
-} from "../config/queue.js";
+/**
+ * @module queue.service
+ * @capability Typed job enqueue operations
+ * @layer Execution
+ *
+ * Provides domain-specific typed enqueue functions by delegating to the
+ * QueueConnector abstraction. Keeps the typed signatures consumers rely on
+ * while the underlying queue implementation is swappable.
+ *
+ * @see connectors/queue.connector.ts — interface
+ * @see connectors/bullmq.connector.ts — implementation
+ */
+
+import { bullMqConnector } from "../connectors/bullmq.connector.js";
 import type { ImageQuality, ImageSize } from "@str-renovator/shared";
+
+const DEFAULT_RETRY = {
+  attempts: 3,
+  backoff: { type: "exponential" as const, delay: 10000 },
+};
 
 export async function enqueueAnalysis(
   analysisId: string,
@@ -14,16 +26,12 @@ export async function enqueueAnalysis(
   quality: ImageQuality,
   size: ImageSize
 ): Promise<void> {
-  await analysisQueue.add("analyze", {
-    analysisId,
-    propertyId,
-    userId,
-    quality,
-    size,
-  }, {
-    attempts: 3,
-    backoff: { type: "exponential", delay: 10000 },
-  });
+  await bullMqConnector.enqueue(
+    "analysis",
+    "analyze",
+    { analysisId, propertyId, userId, quality, size },
+    DEFAULT_RETRY
+  );
 }
 
 export async function enqueueRenovation(
@@ -33,16 +41,12 @@ export async function enqueueRenovation(
   quality: ImageQuality,
   size: ImageSize
 ): Promise<void> {
-  await renovationQueue.add("renovate", {
-    renovationId,
-    analysisPhotoId,
-    userId,
-    quality,
-    size,
-  }, {
-    attempts: 3,
-    backoff: { type: "exponential", delay: 10000 },
-  });
+  await bullMqConnector.enqueue(
+    "renovation",
+    "renovate",
+    { renovationId, analysisPhotoId, userId, quality, size },
+    DEFAULT_RETRY
+  );
 }
 
 export async function enqueueActionImage(
@@ -56,20 +60,22 @@ export async function enqueueActionImage(
   quality: ImageQuality,
   size: ImageSize
 ): Promise<void> {
-  await actionImageQueue.add("action-image", {
-    journeyItemId,
-    sourcePhotoId,
-    userId,
-    propertyId,
-    actionItemTitle,
-    room,
-    styleDirection,
-    quality,
-    size,
-  }, {
-    attempts: 3,
-    backoff: { type: "exponential", delay: 10000 },
-  });
+  await bullMqConnector.enqueue(
+    "action-image",
+    "action-image",
+    {
+      journeyItemId,
+      sourcePhotoId,
+      userId,
+      propertyId,
+      actionItemTitle,
+      room,
+      styleDirection,
+      quality,
+      size,
+    },
+    DEFAULT_RETRY
+  );
 }
 
 export async function enqueueScrape(
@@ -78,18 +84,22 @@ export async function enqueueScrape(
   userId: string,
   url: string
 ): Promise<void> {
-  await scrapeQueue.add("scrape", { scrapeJobId, propertyId, userId, url }, {
-    attempts: 3,
-    backoff: { type: "exponential", delay: 10000 },
-  });
+  await bullMqConnector.enqueue(
+    "scrape",
+    "scrape",
+    { scrapeJobId, propertyId, userId, url },
+    DEFAULT_RETRY
+  );
 }
 
 export async function enqueueLocationResearch(
   propertyId: string,
   userId: string
 ): Promise<void> {
-  await locationResearchQueue.add("location-research", { propertyId, userId }, {
-    attempts: 3,
-    backoff: { type: "exponential", delay: 10000 },
-  });
+  await bullMqConnector.enqueue(
+    "location-research",
+    "location-research",
+    { propertyId, userId },
+    DEFAULT_RETRY
+  );
 }

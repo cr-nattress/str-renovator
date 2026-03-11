@@ -14,6 +14,8 @@ import { processScrapeJob } from "./scrape.job.js";
 import { processActionImageJob } from "./action-image.job.js";
 import { processLocationResearchJob } from "./location-research.job.js";
 import { CONCURRENCY } from "@str-renovator/shared";
+import type { RenovationFailedEvent } from "@str-renovator/shared";
+import { publishEvents } from "../events/event-bus.js";
 
 /** Maps worker name to its dead-letter queue */
 const dlqMap: Record<string, Queue> = {
@@ -69,6 +71,31 @@ export function startWorkers(): void {
             attemptsMade: job.attemptsMade,
           });
           logger.error({ jobId: job.id, queue: `${worker.name}-dlq` }, "job moved to DLQ");
+        }
+
+        // Publish RenovationFailed event — analysis-finalizer handler manages counter/status
+        const renovationData = worker.name === "renovation" ? (job.data as any) : null;
+        if (renovationData?.analysisPhotoId) {
+          try {
+            const failedEvents: RenovationFailedEvent[] = [
+              {
+                type: "RenovationFailed",
+                entityId: renovationData.renovationId ?? job.id ?? "unknown",
+                entityType: "Renovation",
+                userId: renovationData.userId ?? "unknown",
+                timestamp: new Date().toISOString(),
+                data: {
+                  renovationId: renovationData.renovationId ?? job.id ?? "unknown",
+                  analysisPhotoId: renovationData.analysisPhotoId,
+                  userId: renovationData.userId ?? "unknown",
+                  error: err.message,
+                },
+              },
+            ];
+            await publishEvents(failedEvents);
+          } catch (eventErr) {
+            logger.error({ jobId: job.id, err: eventErr instanceof Error ? eventErr.message : eventErr }, "failed to publish RenovationFailed event");
+          }
         }
       }
     });

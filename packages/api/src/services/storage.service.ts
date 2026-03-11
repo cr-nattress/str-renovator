@@ -1,6 +1,16 @@
-import { supabase } from "../config/supabase.js";
+/**
+ * @module storage.service
+ * @capability Photo storage operations
+ * @layer Execution
+ *
+ * Provides domain-specific storage operations (uploadPhoto, downloadPhoto, etc.)
+ * by delegating to the StorageConnector abstraction.
+ *
+ * @see connectors/storage.connector.ts — interface
+ * @see connectors/supabase-storage.connector.ts — implementation
+ */
 
-const BUCKET = "photos";
+import { supabaseStorageConnector } from "../connectors/supabase-storage.connector.js";
 
 export async function uploadPhoto(
   buffer: Buffer,
@@ -10,31 +20,22 @@ export async function uploadPhoto(
   mimeType: string
 ): Promise<string> {
   const path = `${userId}/${propertyId}/${filename}`;
-  const { error } = await supabase.storage
-    .from(BUCKET)
-    .upload(path, buffer, { contentType: mimeType, upsert: true });
-  if (error) throw new Error(`Storage upload failed: ${error.message}`);
-  return path;
+  return supabaseStorageConnector.upload(buffer, path, mimeType);
 }
 
 export async function downloadPhoto(storagePath: string): Promise<Buffer> {
-  const { data, error } = await supabase.storage
-    .from(BUCKET)
-    .download(storagePath);
-  if (error || !data) throw new Error(`Storage download failed: ${error?.message}`);
-  const arrayBuffer = await data.arrayBuffer();
-  return Buffer.from(arrayBuffer);
+  return supabaseStorageConnector.download(storagePath);
 }
 
 export async function deletePhoto(storagePath: string): Promise<void> {
-  const { error } = await supabase.storage.from(BUCKET).remove([storagePath]);
-  if (error) throw new Error(`Storage delete failed: ${error.message}`);
+  return supabaseStorageConnector.delete(storagePath);
 }
 
 export async function getSignedUrl(storagePath: string): Promise<string> {
-  const { data, error } = await supabase.storage
-    .from(BUCKET)
-    .createSignedUrl(storagePath, 3600);
-  if (error || !data) throw new Error(`Signed URL failed: ${error?.message}`);
-  return data.signedUrl;
+  return supabaseStorageConnector.getSignedUrl(storagePath);
+}
+
+/** Returns a signed URL or null if the storage object is missing — eliminates repeated try/catch in routes */
+export async function getSignedUrlOrNull(storagePath: string | null | undefined): Promise<string | null> {
+  return supabaseStorageConnector.getSignedUrlOrNull(storagePath);
 }

@@ -2,8 +2,6 @@ import type { RenovationWithDetails } from "../../api/renovations";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
-const BASE_URL = import.meta.env.VITE_API_URL || "";
-
 interface Props {
   renovations: RenovationWithDetails[];
   currentId: string;
@@ -26,9 +24,9 @@ export function RenovationHistory({ renovations, currentId }: Props) {
             }`}
           >
             <div className="flex-shrink-0 w-16 h-16 rounded overflow-hidden bg-muted">
-              {ren.storage_path && (
+              {ren.url && (
                 <img
-                  src={`${BASE_URL}/api/v1/renovations/${ren.id}/image`}
+                  src={ren.url}
                   alt={`Iteration ${ren.iteration}`}
                   className="w-full h-full object-cover"
                 />

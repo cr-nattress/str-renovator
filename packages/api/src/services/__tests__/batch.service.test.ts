@@ -6,6 +6,7 @@ const mockUpdateStatus = vi.fn();
 const mockListCompleted = vi.fn();
 const mockDownloadPhoto = vi.fn();
 const mockAnalyzeProperty = vi.fn();
+const mockAggregateBatchAnalyses = vi.fn();
 
 vi.mock("../../config/env.js", () => ({
   env: { openaiChatModel: "gpt-4o" },
@@ -35,8 +36,12 @@ vi.mock("../storage.service.js", () => ({
   downloadPhoto: (...args: unknown[]) => mockDownloadPhoto(...args),
 }));
 
-vi.mock("../analysis.service.js", () => ({
+vi.mock("../../skills/analyze-property/index.js", () => ({
   analyzeProperty: (...args: unknown[]) => mockAnalyzeProperty(...args),
+}));
+
+vi.mock("../../skills/aggregate-batch-analyses/index.js", () => ({
+  aggregateBatchAnalyses: (...args: unknown[]) => mockAggregateBatchAnalyses(...args),
 }));
 
 import { chunk, createBatchRecords, processSingleBatch, aggregateBatchResults } from "../batch.service.js";
@@ -174,7 +179,7 @@ describe("aggregateBatchResults", () => {
     expect(mockCreate).not.toHaveBeenCalled(); // No aggregation API call
   });
 
-  it("calls GPT to aggregate multiple batch results", async () => {
+  it("delegates to aggregateBatchAnalyses skill for multiple batch results", async () => {
     const batches = [
       {
         id: "b1",
@@ -195,10 +200,9 @@ describe("aggregateBatchResults", () => {
       action_plan: [],
     };
 
-    mockCreate.mockResolvedValue({
-      model: "gpt-4o-2024-08-06",
-      choices: [{ message: { content: JSON.stringify(merged) } }],
-      usage: { total_tokens: 900 },
+    mockAggregateBatchAnalyses.mockResolvedValue({
+      data: merged,
+      metadata: { model: "gpt-4o-2024-08-06", tokensUsed: 900, promptVersion: "v1" },
     });
 
     const result = await aggregateBatchResults("analysis-1");
@@ -206,6 +210,10 @@ describe("aggregateBatchResults", () => {
     expect(result.data).toEqual(merged);
     expect(result.metadata.model).toBe("gpt-4o-2024-08-06");
     expect(result.metadata.tokensUsed).toBe(900);
-    expect(mockCreate).toHaveBeenCalledOnce();
+    expect(mockAggregateBatchAnalyses).toHaveBeenCalledOnce();
+    expect(mockAggregateBatchAnalyses).toHaveBeenCalledWith(
+      batches.map(b => b.result_json),
+      "analysis-1"
+    );
   });
 });

@@ -66,3 +66,17 @@ export async function updateFields(
     .eq("id", id);
   if (error) throw error;
 }
+
+export async function getStreamData(id: string): Promise<{
+  status: string;
+  total_photos: number;
+  downloaded_photos: number;
+  error: string | null;
+} | null> {
+  const { data } = await supabase
+    .from("scrape_jobs")
+    .select("status, total_photos, downloaded_photos, error")
+    .eq("id", id)
+    .single();
+  return data ?? null;
+}

@@ -2,6 +2,14 @@ import type { Request, Response, NextFunction } from "express";
 import { TIER_LIMITS, type TierLimits } from "@str-renovator/shared";
 import { env } from "../config/env.js";
 
+declare global {
+  namespace Express {
+    interface Request {
+      tierLimit?: number;
+    }
+  }
+}
+
 export function checkTierLimit(limitKey: keyof TierLimits) {
   return async (
     req: Request,
@@ -17,7 +25,7 @@ export function checkTierLimit(limitKey: keyof TierLimits) {
 
       // Debug mode bypasses all tier limits
       if (env.debugMode) {
-        (req as any).tierLimit = Infinity;
+        req.tierLimit = Infinity;
         next();
         return;
       }
@@ -38,7 +46,9 @@ export function checkTierLimit(limitKey: keyof TierLimits) {
 
       // For numeric limits, route handlers check the actual count themselves.
       // We attach the limit to the request for handlers to use.
-      (req as any).tierLimit = limitValue;
+      if (typeof limitValue === "number") {
+        req.tierLimit = limitValue;
+      }
       next();
     } catch (err) {
       next(err);

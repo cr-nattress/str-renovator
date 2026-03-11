@@ -2,81 +2,129 @@ import { useState } from "react";
 import { useProperties, useCreateProperty } from "../api/properties";
 import { PropertyCard } from "../components/properties/PropertyCard";
 import { PropertyForm } from "../components/properties/PropertyForm";
+import { PropertyIntentBox } from "../components/properties/PropertyIntentBox";
 import { PropertyCardSkeleton } from "../components/skeletons";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import type { CreatePropertyDto } from "@str-renovator/shared";
+import { Plus, Home, Sparkles } from "lucide-react";
 
 export function Dashboard() {
   const { data: properties, isLoading } = useProperties();
   const createProperty = useCreateProperty();
   const [showModal, setShowModal] = useState(false);
+  const [showDetailedForm, setShowDetailedForm] = useState(false);
 
   const handleCreate = (data: CreatePropertyDto) => {
     createProperty.mutate(data, {
-      onSuccess: () => setShowModal(false),
+      onSuccess: () => {
+        setShowModal(false);
+        setShowDetailedForm(false);
+      },
     });
+  };
+
+  const handleClose = () => {
+    setShowModal(false);
+    setShowDetailedForm(false);
   };
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Your Properties</h1>
-        <button
-          onClick={() => setShowModal(true)}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors duration-150"
-        >
+        <h1 className="text-2xl font-bold text-foreground">Your Properties</h1>
+        <Button onClick={() => setShowModal(true)}>
+          <Plus className="w-4 h-4 mr-1.5" />
           Add Property
-        </button>
+        </Button>
       </div>
 
       {isLoading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {Array.from({ length: 6 }).map((_, i) => (
+        <div className="space-y-4">
+          {Array.from({ length: 2 }).map((_, i) => (
             <PropertyCardSkeleton key={i} />
           ))}
         </div>
       ) : properties && properties.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="space-y-4">
           {properties.map((prop) => (
             <PropertyCard key={prop.id} property={prop} />
           ))}
         </div>
       ) : (
-        <div className="text-center py-16">
-          <p className="text-gray-500 text-lg">No properties yet.</p>
-          <p className="text-gray-400 text-sm mt-1">
-            Add your first property to get started with photo analysis.
+        <div className="text-center py-20">
+          <div className="relative w-24 h-24 mx-auto mb-6">
+            <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-primary/10 to-accent/10 flex items-center justify-center animate-pulse-border border-2">
+              <Home className="w-10 h-10 text-primary" />
+            </div>
+            <div className="absolute -top-1 -right-1 w-6 h-6 bg-accent rounded-full flex items-center justify-center">
+              <Sparkles className="w-3.5 h-3.5 text-accent-foreground" />
+            </div>
+          </div>
+          <h2 className="text-xl font-semibold text-foreground mb-2">
+            Ready to transform your first property?
+          </h2>
+          <p className="text-muted-foreground mb-6 max-w-sm mx-auto text-sm">
+            Upload photos and our AI will generate renovation ideas, prioritize
+            improvements, and show you the transformation before you spend a
+            dollar.
           </p>
-          <button
-            onClick={() => setShowModal(true)}
-            className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors duration-150"
-          >
+          <Button size="lg" onClick={() => setShowModal(true)}>
+            <Plus className="w-4 h-4 mr-2" />
             Add Your First Property
-          </button>
+          </Button>
+          <p className="text-xs text-muted-foreground/60 mt-3">
+            Takes less than 2 minutes
+          </p>
         </div>
       )}
 
-      {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900">
-                New Property
-              </h2>
-              <button
-                onClick={() => setShowModal(false)}
-                className="text-gray-400 hover:text-gray-600 text-xl"
-              >
-                &times;
-              </button>
-            </div>
-            <PropertyForm
-              onSubmit={handleCreate}
-              isLoading={createProperty.isPending}
-              submitLabel="Create Property"
+      <Dialog open={showModal} onOpenChange={handleClose}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {showDetailedForm ? "New Property" : "Add Property"}
+            </DialogTitle>
+            <DialogDescription>
+              {showDetailedForm
+                ? "Enter your property details below."
+                : "Paste a listing URL or describe your property to get started."}
+            </DialogDescription>
+          </DialogHeader>
+          {showDetailedForm ? (
+            <>
+              <PropertyForm
+                onSubmit={handleCreate}
+                isLoading={createProperty.isPending}
+                submitLabel="Create Property"
+              />
+              <div className="text-center mt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowDetailedForm(false)}
+                  className="text-sm text-muted-foreground hover:text-foreground underline-offset-4 hover:underline"
+                >
+                  Back to quick add
+                </button>
+              </div>
+            </>
+          ) : (
+            <PropertyIntentBox
+              onCreated={() => {
+                setShowModal(false);
+                setShowDetailedForm(false);
+              }}
+              onShowDetailedForm={() => setShowDetailedForm(true)}
             />
-          </div>
-        </div>
-      )}
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

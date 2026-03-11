@@ -20,7 +20,7 @@ vi.mock("../../config/rate-limiter.js", () => ({
   chatCompletionLimiter: (fn: () => unknown) => fn(),
 }));
 
-import { extractListingData } from "../listing-extraction.service.js";
+import { extractListingData } from "../../skills/extract-listing-data/index.js";
 
 describe("extractListingData", () => {
   beforeEach(() => {

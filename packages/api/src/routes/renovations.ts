@@ -1,11 +1,16 @@
 import { Router } from "express";
 import { z } from "zod";
 import { checkTierLimit } from "../middleware/tier.js";
-import { TIER_LIMITS, PlatformError } from "@str-renovator/shared";
-import { enqueueRenovation } from "../services/queue.service.js";
+import { PlatformError, TIER_LIMITS } from "@str-renovator/shared";
 import * as storageService from "../services/storage.service.js";
 import * as renovationRepo from "../repositories/renovation.repository.js";
+import * as analysisPhotoRepo from "../repositories/analysis-photo.repository.js";
 import * as feedbackRepo from "../repositories/feedback.repository.js";
+import {
+  submitRenovationFeedback,
+  rerunRenovation,
+} from "../commands/index.js";
+import { computeRenovationActions } from "../actions/index.js";
 
 const router = Router();
 
@@ -14,24 +19,57 @@ const feedbackSchema = z.object({
   comment: z.string().optional(),
 });
 
-// GET /analysis-photos/:id/renovations - List renovations for an analysis_photo
+// GET /analysis-photos/:id/renovations - Get analysis photo with nested renovations
 router.get("/analysis-photos/:id/renovations", async (req, res, next) => {
   try {
     const user = req.dbUser!;
 
-    const renovations = await renovationRepo.listByAnalysisPhoto(req.params.id, user.id);
+    // Fetch the analysis photo with its linked photo record
+    const analysisPhoto = await analysisPhotoRepo.findByIdWithPhoto(req.params.id);
+    if (!analysisPhoto) {
+      throw PlatformError.notFound("AnalysisPhoto", req.params.id);
+    }
 
-    // Add signed URLs
-    const withUrls = await Promise.all(
+    // Add signed URL for the original photo
+    const photoUrl = await storageService.getSignedUrlOrNull(analysisPhoto.photos.storage_path);
+    const photoWithUrl = { ...analysisPhoto.photos, url: photoUrl };
+
+    // Fetch renovations and add signed URLs
+    const renovations = await renovationRepo.listByAnalysisPhoto(req.params.id, user.id);
+    const renovationImages = await Promise.all(
       renovations.map(async (r: any) => ({
         ...r,
-        url: r.storage_path
-          ? await storageService.getSignedUrl(r.storage_path)
-          : null,
+        url: await storageService.getSignedUrlOrNull(r.storage_path),
       }))
     );
 
-    res.json(withUrls);
+    // Compute available actions based on renovation state
+    const latestRenovation = renovationImages.length > 0
+      ? renovationImages.reduce((a: any, b: any) => a.iteration > b.iteration ? a : b)
+      : null;
+
+    let hasLatestFeedback = false;
+    if (latestRenovation) {
+      const feedbacks = await feedbackRepo.listByRenovationIds([latestRenovation.id]);
+      hasLatestFeedback = feedbacks.length > 0;
+    }
+
+    const rerunLimit = TIER_LIMITS[user.tier].rerunsPerPhoto;
+    const availableActions = computeRenovationActions({
+      latestRenovationId: latestRenovation?.id ?? null,
+      iterationCount: renovationImages.length,
+      rerunLimit,
+      hasLatestFeedback,
+    });
+
+    // Return AnalysisPhotoWithDetails shape
+    const { photos: _photos, ...analysisPhotoFields } = analysisPhoto;
+    res.json({
+      ...analysisPhotoFields,
+      photo: photoWithUrl,
+      renovation_images: renovationImages,
+      availableActions,
+    });
   } catch (err) {
     next(err);
   }
@@ -40,24 +78,12 @@ router.get("/analysis-photos/:id/renovations", async (req, res, next) => {
 // POST /renovations/:id/feedback - Submit feedback
 router.post("/renovations/:id/feedback", async (req, res, next) => {
   try {
-    const user = req.dbUser!;
     const body = feedbackSchema.parse(req.body);
-
-    // Verify ownership
-    const renovation = await renovationRepo.findOwnershipCheck(req.params.id, user.id);
-
-    if (!renovation) {
-      throw PlatformError.notFound("Renovation", req.params.id);
-    }
-
-    const data = await feedbackRepo.create({
-      renovation_id: req.params.id,
-      user_id: user.id,
-      rating: body.rating,
-      comment: body.comment ?? null,
-    });
-
-    res.status(201).json(data);
+    const result = await submitRenovationFeedback(
+      { renovationId: req.params.id, rating: body.rating, comment: body.comment },
+      { userId: req.dbUser!.id, user: req.dbUser! },
+    );
+    res.status(201).json(result);
   } catch (err) {
     if (err instanceof z.ZodError) {
       return next(PlatformError.validationError(err.errors.map(e => e.message).join(", ")));
@@ -72,64 +98,23 @@ router.post(
   checkTierLimit("rerunsPerPhoto"),
   async (req, res, next) => {
     try {
-      const user = req.dbUser!;
-
-      // Get the original renovation
-      const renovation = await renovationRepo.findByIdAndUser(req.params.id as string, user.id);
-
-      if (!renovation) {
-        res.status(404).json({ error: "Renovation not found" });
-        return;
-      }
-
-      // Check rerun limit
-      const count = await renovationRepo.countByAnalysisPhoto(renovation.analysis_photo_id);
-
-      const limit = (req as any).tierLimit ?? TIER_LIMITS[user.tier].rerunsPerPhoto;
-      if (count >= limit + 1) {
-        // +1 for original
-        throw PlatformError.tierLimitReached("reruns per photo", limit);
-      }
-
-      // Collect all feedback for renovations of this analysis_photo
-      const renovationIds = await renovationRepo.listIdsByAnalysisPhoto(renovation.analysis_photo_id);
-
-      const allFeedback = await feedbackRepo.listByRenovationIds(renovationIds);
-
-      // Build feedback context
-      const feedbackContext = allFeedback
-        .map(
-          (f: any) =>
-            `[${f.rating}]${f.comment ? ` ${f.comment}` : ""}`
-        )
-        .join("\n");
-
-      // Create new renovation
-      const newRenovation = await renovationRepo.create({
-        analysis_photo_id: renovation.analysis_photo_id,
-        user_id: user.id,
-        iteration: renovation.iteration + 1,
-        parent_renovation_id: renovation.id,
-        feedback_context: feedbackContext || null,
-        status: "pending",
-      });
-
-      const quality = req.body.quality ?? TIER_LIMITS[user.tier].imageQuality;
-      const size = req.body.size ?? "auto";
-
-      await enqueueRenovation(
-        newRenovation.id,
-        renovation.analysis_photo_id,
-        user.id,
-        quality,
-        size
+      const result = await rerunRenovation(
+        {
+          renovationId: req.params.id as string,
+          quality: req.body.quality,
+          size: req.body.size,
+        },
+        {
+          userId: req.dbUser!.id,
+          user: req.dbUser!,
+          tierLimit: req.tierLimit,
+        },
       );
-
-      res.status(202).json({ id: newRenovation.id, status: newRenovation.status });
+      res.status(202).json(result);
     } catch (err) {
       next(err);
     }
-  }
+  },
 );
 
 export default router;

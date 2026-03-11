@@ -60,12 +60,19 @@ export function EditableText({ value, onSave, isSaving, className = "" }: Props)
   }
 
   return (
-    <p
-      onClick={() => setEditing(true)}
-      className={`text-sm leading-relaxed whitespace-pre-wrap cursor-pointer rounded-md p-1.5 -m-1.5 hover:bg-muted/50 transition-colors ${className}`}
-      title="Click to edit"
-    >
-      {value}
-    </p>
+    <div className={`relative group ${className}`}>
+      <div className="absolute -top-1 -right-1 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+        <span className="text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded font-mono">
+          click to edit
+        </span>
+      </div>
+      <p
+        onClick={() => setEditing(true)}
+        className="text-sm leading-relaxed whitespace-pre-wrap cursor-text rounded-md p-2 -m-2 hover:bg-muted/40 hover:ring-1 hover:ring-border transition-all"
+        title="Click to edit"
+      >
+        {value}
+      </p>
+    </div>
   );
 }

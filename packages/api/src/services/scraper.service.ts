@@ -1,4 +1,4 @@
-import { chromium } from "playwright";
+import { chromium, type Page } from "playwright";
 
 export interface ScrapedPhoto {
   url: string;
@@ -10,11 +10,46 @@ export interface ScrapeResult {
   pageContent: string;
 }
 
-async function scrapeListingContent(
-  page: import("playwright").Page
-): Promise<string> {
+export interface ReviewScrapeResult {
+  reviewContent: string;
+  reviewCount: number;
+}
+
+const SCRAPER_USER_AGENT =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+
+/** Launches a headless browser, navigates to the URL, runs the callback, and cleans up */
+async function withScraperPage<T>(
+  url: string,
+  fn: (page: Page) => Promise<T>
+): Promise<T> {
+  const browser = await chromium.launch({ headless: true });
+  const context = await browser.newContext({
+    userAgent: SCRAPER_USER_AGENT,
+    viewport: { width: 1440, height: 900 },
+    locale: "en-US",
+  });
+  const page = await context.newPage();
+
+  try {
+    await page.goto(url, { waitUntil: "networkidle", timeout: 45000 });
+    return await fn(page);
+  } finally {
+    await browser.close();
+  }
+}
+
+/** Waits for Airbnb SPA hydration by looking for the h1 element */
+async function waitForAirbnbRender(page: Page): Promise<void> {
+  try {
+    await page.waitForSelector("h1", { timeout: 10000 });
+  } catch {
+    // Continue anyway — page may have a different structure
+  }
+}
+
+async function scrapeListingContent(page: Page): Promise<string> {
   const text = await page.evaluate(() => {
-    // Remove nav, footer, scripts, styles
     const elementsToRemove = document.querySelectorAll(
       "nav, footer, script, style, noscript, [role='navigation'], [role='banner']"
     );
@@ -23,39 +58,23 @@ async function scrapeListingContent(
     return document.body.innerText || "";
   });
 
-  // Cap at 15k characters
   return text.slice(0, 15_000);
 }
 
 export async function scrapeListingPhotos(
   listingUrl: string
 ): Promise<ScrapeResult> {
-  const browser = await chromium.launch({ headless: true });
-  const context = await browser.newContext({
-    userAgent:
-      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    viewport: { width: 1440, height: 900 },
-    locale: "en-US",
-  });
-  const page = await context.newPage();
-
-  try {
-    // Use networkidle — Airbnb is a React SPA that renders after domcontentloaded
-    await page.goto(listingUrl, { waitUntil: "networkidle", timeout: 45000 });
-
+  return withScraperPage(listingUrl, async (page) => {
     let imageUrls: string[] = [];
 
-    // Detect platform and scrape accordingly
     if (listingUrl.includes("airbnb")) {
       imageUrls = await scrapeAirbnb(page);
     } else if (listingUrl.includes("vrbo") || listingUrl.includes("homeaway")) {
       imageUrls = await scrapeVrbo(page);
     } else {
-      // Generic: grab all large images
       imageUrls = await scrapeGeneric(page);
     }
 
-    // Deduplicate and filter
     const unique = [...new Set(imageUrls)].filter(
       (url) => url.startsWith("http") && !url.includes("avatar") && !url.includes("icon")
     );
@@ -68,20 +87,12 @@ export async function scrapeListingPhotos(
     const pageContent = await scrapeListingContent(page);
 
     return { photos, pageContent };
-  } finally {
-    await browser.close();
-  }
+  });
 }
 
-async function scrapeAirbnb(page: import("playwright").Page): Promise<string[]> {
-  // Wait for the listing to actually render (SPA hydration)
-  try {
-    await page.waitForSelector("h1", { timeout: 10000 });
-  } catch {
-    // Continue anyway — page may have a different structure
-  }
+async function scrapeAirbnb(page: Page): Promise<string[]> {
+  await waitForAirbnbRender(page);
 
-  // Try to click "Show all photos" button
   try {
     const showAllBtn = page.locator('button:has-text("Show all photos")');
     if (await showAllBtn.isVisible({ timeout: 5000 })) {
@@ -92,28 +103,23 @@ async function scrapeAirbnb(page: import("playwright").Page): Promise<string[]> 
     // Button not found, continue with what's on page
   }
 
-  // Scroll through the gallery to trigger lazy-loaded images
-  await scrollToLoadAll(page);
+  await scrollToLoadContent(page, {
+    stabilitySelector: 'img[src*="/Hosting-"]',
+  });
 
-  // Extract image URLs — only actual listing photos
   const urls = await page.evaluate(() => {
     const images = document.querySelectorAll("img[src]");
     return Array.from(images)
       .map((img) => (img as HTMLImageElement).src)
       .filter((src) => {
-        // Must be from Airbnb CDN
         if (!src.includes("muscache.com") && !src.includes("airbnbcdn")) return false;
-        // Exclude platform assets (icons, laurels, badges)
         if (src.includes("platform-assets")) return false;
         if (src.includes("LaurelItem")) return false;
-        // Exclude user profile photos
         if (src.includes("/User-") || src.includes("/User/")) return false;
-        // Must be an actual listing photo (Hosting- or Pictures path)
         return src.includes("/Hosting-") || src.includes("/Pictures/");
       });
   });
 
-  // Upgrade to high-res versions
   return urls.map((url) => {
     if (url.includes("im_w=")) {
       return url.replace(/im_w=\d+/, "im_w=1200");
@@ -122,38 +128,53 @@ async function scrapeAirbnb(page: import("playwright").Page): Promise<string[]> 
   });
 }
 
-/** Scroll the photo gallery (modal or page) to load all lazy images */
-async function scrollToLoadAll(page: import("playwright").Page): Promise<void> {
+interface ScrollOptions {
+  maxScrolls?: number;
+  waitMs?: number;
+  stableThreshold?: number;
+  /** CSS selector to count for stability detection. If omitted, uses text length. */
+  stabilitySelector?: string;
+}
+
+/** Scrolls via PageDown to load lazy content, with early exit when content stabilizes */
+async function scrollToLoadContent(
+  page: Page,
+  options: ScrollOptions = {}
+): Promise<void> {
+  const {
+    maxScrolls = 50,
+    waitMs = 250,
+    stableThreshold = 5,
+    stabilitySelector,
+  } = options;
+
   let previousCount = 0;
   let stableRounds = 0;
 
-  for (let i = 0; i < 50; i++) {
-    // Keyboard PageDown reliably scrolls whichever container has focus,
-    // including nested scroll containers inside dialogs with overflow:clip
+  for (let i = 0; i < maxScrolls; i++) {
     await page.keyboard.press("PageDown");
-    await page.waitForTimeout(250);
+    await page.waitForTimeout(waitMs);
 
-    // Check if new images have loaded
-    const currentCount = await page.evaluate(() =>
-      document.querySelectorAll('img[src*="/Hosting-"]').length
-    );
+    const currentCount = stabilitySelector
+      ? await page.evaluate(
+          (sel) => document.querySelectorAll(sel).length,
+          stabilitySelector
+        )
+      : await page.evaluate(() => document.body.innerText.length);
 
     if (currentCount === previousCount) {
       stableRounds++;
-      // No new images for 5 consecutive scrolls — we've loaded everything
-      if (stableRounds >= 5) break;
+      if (stableRounds >= stableThreshold) break;
     } else {
       stableRounds = 0;
       previousCount = currentCount;
     }
   }
 
-  // Short pause for any final renders
   await page.waitForTimeout(500);
 }
 
-async function scrapeVrbo(page: import("playwright").Page): Promise<string[]> {
-  // Try to open photo gallery
+async function scrapeVrbo(page: Page): Promise<string[]> {
   try {
     const galleryBtn = page.locator('button:has-text("photos"), button:has-text("images")');
     if (await galleryBtn.first().isVisible({ timeout: 5000 })) {
@@ -177,7 +198,7 @@ async function scrapeVrbo(page: import("playwright").Page): Promise<string[]> {
   });
 }
 
-async function scrapeGeneric(page: import("playwright").Page): Promise<string[]> {
+async function scrapeGeneric(page: Page): Promise<string[]> {
   return page.evaluate(() => {
     const images = document.querySelectorAll("img[src]");
     return Array.from(images)
@@ -188,6 +209,68 @@ async function scrapeGeneric(page: import("playwright").Page): Promise<string[]>
       .filter((img) => img.w >= 300 || img.src.includes("1200") || img.src.includes("large"))
       .map((img) => img.src);
   });
+}
+
+export async function scrapeListingReviews(
+  listingUrl: string
+): Promise<ReviewScrapeResult> {
+  if (!listingUrl.includes("airbnb")) {
+    return { reviewContent: "", reviewCount: 0 };
+  }
+
+  return withScraperPage(listingUrl, async (page) => {
+    await waitForAirbnbRender(page);
+
+    // Try to open the reviews section — multiple fallback selectors
+    let reviewsOpened = false;
+    const reviewTriggers = [
+      'button:has-text("Show all"):has-text("review")',
+      'a[href*="#reviews"]',
+      'button:has-text("reviews")',
+    ];
+
+    for (const selector of reviewTriggers) {
+      try {
+        const el = page.locator(selector).first();
+        if (await el.isVisible({ timeout: 3000 })) {
+          await el.click();
+          await page.waitForTimeout(2000);
+          reviewsOpened = true;
+          break;
+        }
+      } catch {
+        // Try next selector
+      }
+    }
+
+    if (!reviewsOpened) {
+      return { reviewContent: "", reviewCount: 0 };
+    }
+
+    await scrollToLoadContent(page, {
+      maxScrolls: 20,
+      waitMs: 300,
+      stableThreshold: 3,
+    });
+
+    // Extract review text and count in a single evaluate call
+    const { text, count } = await page.evaluate(() => {
+      const modal = document.querySelector('[role="dialog"]');
+      const container = (modal ?? document.body) as HTMLElement;
+      const text = container.innerText || "";
+      const reviewBlocks = container.querySelectorAll(
+        '[data-review-id], [id*="review"]'
+      );
+      return { text, count: reviewBlocks.length };
+    });
+
+    const cappedContent = text.slice(0, 20_000);
+
+    return {
+      reviewContent: cappedContent,
+      reviewCount: count || Math.max(1, Math.floor(cappedContent.length / 500)),
+    };
+  }).catch(() => ({ reviewContent: "", reviewCount: 0 }));
 }
 
 export async function downloadImage(url: string): Promise<Buffer> {

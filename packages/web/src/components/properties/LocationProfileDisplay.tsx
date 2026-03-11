@@ -1,48 +1,51 @@
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { ConfidenceIndicator } from "@/components/ai/ConfidenceIndicator";
+import { ReasoningExpander } from "@/components/ai/ReasoningExpander";
+import { EditableText } from "@/components/ai/EditableText";
+import { CollapsibleSection } from "./CollapsibleSection";
+import { formatKey, renderList } from "./shared-renderers";
+import { RefreshCw } from "lucide-react";
+
 interface Props {
   profile: Record<string, unknown>;
   onRefresh: () => void;
   isRefreshing?: boolean;
+  onFieldUpdate?: (fieldPath: string, value: string) => Promise<void>;
+  isSaving?: boolean;
 }
 
-const AREA_TYPE_COLORS: Record<string, string> = {
-  urban: "bg-gray-700 text-white",
-  suburban: "bg-green-600 text-white",
-  rural: "bg-amber-600 text-white",
-  beach: "bg-cyan-500 text-white",
-  mountain: "bg-emerald-700 text-white",
-  lake: "bg-blue-500 text-white",
-  desert: "bg-orange-500 text-white",
-  ski: "bg-sky-600 text-white",
-  island: "bg-teal-500 text-white",
-};
-
-function formatKey(key: string): string {
-  return key
-    .replace(/_/g, " ")
-    .replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-function renderSection(value: unknown): React.ReactNode {
+function renderSection(
+  key: string,
+  value: unknown,
+  onFieldUpdate?: (fieldPath: string, value: string) => Promise<void>,
+  isSaving?: boolean,
+): React.ReactNode {
   if (Array.isArray(value)) {
-    return (
-      <ul className="list-disc list-inside space-y-1">
-        {value.map((item, i) => (
-          <li key={i} className="text-sm text-gray-700">{String(item)}</li>
-        ))}
-      </ul>
-    );
+    return renderList(value);
   }
   if (typeof value === "string") {
+    if (onFieldUpdate) {
+      return (
+        <EditableText
+          value={value}
+          onSave={(newValue) => onFieldUpdate(key, newValue)}
+          isSaving={isSaving}
+        />
+      );
+    }
     return <p className="text-sm text-gray-700 whitespace-pre-line">{value}</p>;
   }
   return <p className="text-sm text-gray-700">{JSON.stringify(value)}</p>;
 }
 
-export function LocationProfileDisplay({ profile, onRefresh, isRefreshing }: Props) {
+export function LocationProfileDisplay({ profile, onRefresh, isRefreshing, onFieldUpdate, isSaving }: Props) {
   const areaType = profile.area_type as string | undefined;
   const areaBio = profile.area_bio as string | undefined;
+  const confidence = profile.confidence as number | undefined;
+  const reasoning = profile.reasoning as string | undefined;
 
-  const skipKeys = new Set(["area_type", "area_bio"]);
+  const skipKeys = new Set(["area_type", "area_bio", "confidence", "reasoning"]);
   const otherSections = Object.entries(profile).filter(
     ([key, value]) => !skipKeys.has(key) && value != null && value !== ""
   );
@@ -53,40 +56,52 @@ export function LocationProfileDisplay({ profile, onRefresh, isRefreshing }: Pro
         <div className="flex items-center gap-3">
           <h3 className="text-lg font-semibold text-gray-900">Location Profile</h3>
           {areaType && (
-            <span
-              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                AREA_TYPE_COLORS[areaType] ?? "bg-gray-200 text-gray-800"
-              }`}
-            >
-              {areaType}
-            </span>
+            <Badge variant="secondary">{areaType}</Badge>
+          )}
+          {confidence != null && (
+            <ConfidenceIndicator confidence={confidence} />
           )}
         </div>
-        <button
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={onRefresh}
           disabled={isRefreshing}
-          className="text-sm text-blue-600 hover:text-blue-700 font-medium disabled:opacity-50"
         >
+          <RefreshCw className={`h-4 w-4 mr-1.5 ${isRefreshing ? "animate-spin" : ""}`} />
           {isRefreshing ? "Refreshing..." : "Refresh"}
-        </button>
+        </Button>
       </div>
 
       {areaBio && (
-        <p className="text-sm text-gray-700 mb-5 leading-relaxed whitespace-pre-line">
-          {areaBio}
-        </p>
+        onFieldUpdate ? (
+          <div className="mb-4">
+            <EditableText
+              value={areaBio}
+              onSave={(newValue) => onFieldUpdate("area_bio", newValue)}
+              isSaving={isSaving}
+            />
+          </div>
+        ) : (
+          <p className="text-sm text-gray-700 mb-4 leading-relaxed whitespace-pre-line">
+            {areaBio}
+          </p>
+        )
       )}
 
-      <div className="space-y-4">
-        {otherSections.map(([key, value]) => (
-          <div key={key} className="border-t border-gray-100 pt-3">
-            <h4 className="text-sm font-medium text-gray-900 mb-2">
-              {formatKey(key)}
-            </h4>
-            {renderSection(value)}
-          </div>
-        ))}
-      </div>
+      {reasoning && (
+        <ReasoningExpander reasoning={reasoning} />
+      )}
+
+      {otherSections.length > 0 && (
+        <div className="space-y-1">
+          {otherSections.map(([key, value]) => (
+            <CollapsibleSection key={key} title={formatKey(key)}>
+              {renderSection(key, value, onFieldUpdate, isSaving)}
+            </CollapsibleSection>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

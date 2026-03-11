@@ -9,6 +9,7 @@
 import * as batchService from "../../services/batch.service.js";
 import type { PropertyAnalysis, AiMetadata } from "@str-renovator/shared";
 import * as analysisRepo from "../../repositories/analysis.repository.js";
+import { logger } from "../../config/logger.js";
 
 export interface AggregationResult {
   analysis: PropertyAnalysis;
@@ -20,7 +21,22 @@ export async function aggregateAndSaveResults(
 ): Promise<AggregationResult> {
   await analysisRepo.updateStatus(analysisId, "aggregating");
 
+  logger.info({ analysisId }, "starting batch result aggregation");
+
   const { data: analysis, metadata } = await batchService.aggregateBatchResults(analysisId);
+
+  logger.info(
+    {
+      analysisId,
+      model: metadata.model,
+      tokensUsed: metadata.tokensUsed,
+      promptVersion: metadata.promptVersion,
+      photoCount: analysis.photos.length,
+      actionPlanCount: analysis.action_plan.length,
+      filenames: analysis.photos.map(p => p.filename),
+    },
+    "aggregation complete — saving results"
+  );
 
   await analysisRepo.updateStatus(analysisId, "aggregating", {
     property_assessment: analysis.property_assessment,

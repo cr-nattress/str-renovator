@@ -1,4 +1,5 @@
 import type { DbPhoto } from "@str-renovator/shared";
+import { DownloadButton } from "@/components/ui/download-button";
 
 type PhotoWithUrl = DbPhoto & { url?: string };
 
@@ -43,17 +44,25 @@ export function PhotoGrid({ photos, onDelete, onPhotoClick }: Props) {
               </span>
             )}
           </div>
-          {onDelete && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete(photo.id);
-              }}
-              className="absolute top-1 right-1 w-6 h-6 bg-red-600 text-white rounded-full text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex items-center justify-center"
-            >
-              X
-            </button>
-          )}
+          <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+            {photo.url && (
+              <DownloadButton
+                url={photo.url}
+                filename={photo.display_name ?? photo.filename}
+              />
+            )}
+            {onDelete && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(photo.id);
+                }}
+                className="w-6 h-6 bg-red-600 text-white rounded-full text-xs font-bold flex items-center justify-center"
+              >
+                X
+              </button>
+            )}
+          </div>
           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent rounded-b-lg p-2 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
             <p className="text-xs text-white truncate">
               {photo.display_name ?? photo.filename}

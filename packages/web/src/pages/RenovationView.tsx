@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
 import {
   useRenovations,
@@ -8,10 +8,10 @@ import {
 import { PhotoCompare } from "../components/photos/PhotoCompare";
 import { RenovationFeedback } from "../components/renovation/RenovationFeedback";
 import { RenovationHistory } from "../components/renovation/RenovationHistory";
+import { EditableText } from "@/components/ai/EditableText";
+import { ActionBar } from "@/components/ui/action-bar";
 import { RenovationViewSkeleton } from "../components/skeletons";
-import type { FeedbackRating } from "@str-renovator/shared";
-
-const BASE_URL = import.meta.env.VITE_API_URL || "";
+import type { FeedbackRating, AvailableAction } from "@str-renovator/shared";
 
 export function RenovationView() {
   const { analysisPhotoId } = useParams<{ analysisPhotoId: string }>();
@@ -19,25 +19,19 @@ export function RenovationView() {
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
   const [rerunFeedback, setRerunFeedback] = useState("");
 
-  const latestRenovationId = useMemo(() => {
-    if (!data?.renovation_images?.length) return "";
+  const latestRenovation = useMemo(() => {
+    if (!data?.renovation_images?.length) return null;
     return data.renovation_images.reduce((a, b) =>
       a.iteration > b.iteration ? a : b,
-    ).id;
+    );
   }, [data]);
 
-  const submitFeedback = useSubmitFeedback(latestRenovationId);
-  const rerunRenovation = useRerunRenovation(latestRenovationId);
+  const submitFeedback = useSubmitFeedback(latestRenovation?.id ?? "");
+  const rerunRenovation = useRerunRenovation(latestRenovation?.id ?? "");
 
   if (isLoading || !data) {
     return <RenovationViewSkeleton />;
   }
-
-  const latestRenovation = data.renovation_images.length
-    ? data.renovation_images.reduce((a, b) =>
-        a.iteration > b.iteration ? a : b,
-      )
-    : null;
 
   const handleFeedback = (rating: FeedbackRating, comment?: string) => {
     submitFeedback.mutate(
@@ -45,6 +39,22 @@ export function RenovationView() {
       { onSuccess: () => setFeedbackSubmitted(true) },
     );
   };
+
+  const handleAction = useCallback(
+    (action: AvailableAction) => {
+      switch (action.command) {
+        case "submit-feedback":
+          // Scroll to feedback section
+          document.getElementById("feedback-section")?.scrollIntoView({ behavior: "smooth" });
+          break;
+        case "rerun-renovation":
+          // Scroll to rerun section
+          document.getElementById("rerun-section")?.scrollIntoView({ behavior: "smooth" });
+          break;
+      }
+    },
+    [],
+  );
 
   return (
     <div>
@@ -59,18 +69,21 @@ export function RenovationView() {
         {data.room} Renovation
       </h1>
 
-      <div className="flex items-center gap-2 mb-6">
+      <div className="flex items-center justify-between mb-6">
         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
           {data.priority} priority
         </span>
+        {data.availableActions && data.availableActions.length > 0 && (
+          <ActionBar actions={data.availableActions} onAction={handleAction} />
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
-          {latestRenovation?.storage_path && (
+          {latestRenovation?.url && (
             <PhotoCompare
-              beforeSrc={`${BASE_URL}/api/v1/photos/${data.photo.id}/file`}
-              afterSrc={`${BASE_URL}/api/v1/renovations/${latestRenovation.id}/image`}
+              beforeSrc={data.photo.url ?? ""}
+              afterSrc={latestRenovation.url}
             />
           )}
 
@@ -78,8 +91,21 @@ export function RenovationView() {
             <h3 className="text-sm font-semibold text-gray-900 mb-2">
               Suggested Renovations
             </h3>
-            <p className="text-sm text-gray-700 whitespace-pre-wrap">
-              {data.renovations}
+            <EditableText
+              value={data.renovations}
+              onSave={() => {
+                /* Renovation text is read-only from analysis — edit support reserved for future */
+              }}
+            />
+
+            <p className="text-xs text-muted-foreground mt-3">
+              View the full analysis for confidence scores and AI reasoning behind these recommendations.{" "}
+              <Link
+                to={`/analyses/${data.analysis_id}`}
+                className="underline hover:text-foreground transition-colors"
+              >
+                See analysis details
+              </Link>
             </p>
 
             {data.report && (
@@ -94,7 +120,7 @@ export function RenovationView() {
             )}
           </div>
 
-          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+          <div id="feedback-section" className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
             <h3 className="text-sm font-semibold text-gray-900 mb-3">
               Feedback
             </h3>
@@ -105,7 +131,7 @@ export function RenovationView() {
             />
           </div>
 
-          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+          <div id="rerun-section" className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
             <h3 className="text-sm font-semibold text-gray-900 mb-3">
               Re-run with Feedback
             </h3>

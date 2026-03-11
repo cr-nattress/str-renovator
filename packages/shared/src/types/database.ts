@@ -38,6 +38,7 @@ export interface DbProperty {
   scraped_data: Record<string, unknown> | null;
   location_profile: Record<string, unknown> | null;
   property_profile: Record<string, unknown> | null;
+  review_analysis: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
 }
@@ -128,6 +129,18 @@ export interface DbFeedback {
   user_id: string;
   rating: FeedbackRating;
   comment: string | null;
+  created_at: string;
+}
+
+export interface DbEditHistory {
+  id: string;
+  entity_type: string;
+  entity_id: string;
+  field_path: string;
+  previous_value: unknown;
+  new_value: unknown;
+  edited_by: string;
+  source: "user" | "ai" | "scrape";
   created_at: string;
 }
 

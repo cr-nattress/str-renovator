@@ -8,3 +8,9 @@ export type SSEEvent =
   | { type: "batch_progress"; batchIndex: number; totalBatches: number; batchStatus: "completed" | "failed" }
   | { type: "error"; message: string }
   | { type: "done" };
+
+export type StreamEvent =
+  | { type: "status"; status: string; message?: string }
+  | { type: "progress"; completed: number; total: number; message?: string }
+  | { type: "error"; message: string }
+  | { type: "done"; message?: string };

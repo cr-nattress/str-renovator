@@ -14,6 +14,7 @@ import designJourneyRouter from "./routes/design-journey.js";
 import webhooksRouter from "./routes/webhooks.js";
 import scrapeRouter from "./routes/scrape.js";
 import adminRouter from "./routes/admin.js";
+import editHistoryRouter from "./routes/edit-history.js";
 
 const app = express();
 
@@ -64,6 +65,7 @@ app.use("/api/v1", renovationsRouter);
 app.use("/api/v1", designJourneyRouter);
 app.use("/api/v1", scrapeRouter);
 app.use("/api/v1", adminRouter);
+app.use("/api/v1", editHistoryRouter);
 
 // Global error handler
 app.use(errorHandler);

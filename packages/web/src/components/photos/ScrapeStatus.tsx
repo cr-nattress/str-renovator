@@ -1,4 +1,5 @@
-import { useScrapeJob, type ScrapeJob } from "../../api/scrape";
+import { useStreamProgress } from "../../hooks/useStreamProgress";
+import type { ScrapeJob } from "../../api/scrape";
 
 interface Props {
   jobId: string;
@@ -23,6 +24,11 @@ const STATUS_CONFIG: Record<
     label: "Extracting listing data...",
     color: "text-indigo-600",
     bgColor: "bg-indigo-100",
+  },
+  analyzing_reviews: {
+    label: "Analyzing guest reviews...",
+    color: "text-cyan-600",
+    bgColor: "bg-cyan-100",
   },
   downloading: {
     label: "Downloading photos...",
@@ -52,44 +58,40 @@ const STATUS_CONFIG: Record<
 };
 
 export function ScrapeStatus({ jobId, onDone }: Props) {
-  const { data: job } = useScrapeJob(jobId);
+  const stream = useStreamProgress(`/api/v1/scrape-jobs/${jobId}/stream`, {
+    invalidateKeys: [["scrape-job", jobId], ["scrape-jobs"]],
+    onDone,
+  });
 
-  if (!job) {
-    return (
-      <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg border border-gray-200">
-        <Spinner />
-        <span className="text-sm text-gray-600">Starting import...</span>
-      </div>
-    );
-  }
-
-  const config = STATUS_CONFIG[job.status];
-  const isActive = job.status === "pending" || job.status === "scraping" || job.status === "extracting_data" || job.status === "downloading" || job.status === "researching_location" || job.status === "synthesizing";
-  const showProgress = job.status === "downloading" && job.total_photos > 0;
+  const status = (stream.currentStatus ?? "pending") as ScrapeJob["status"];
+  const config = STATUS_CONFIG[status] ?? STATUS_CONFIG.pending;
+  const displayMessage = stream.currentMessage ?? config.label;
+  const isActive = !stream.isDone && !stream.error;
+  const showProgress = stream.progress && stream.progress.total > 0;
   const pct = showProgress
-    ? Math.round((job.downloaded_photos / job.total_photos) * 100)
+    ? Math.round((stream.progress!.completed / stream.progress!.total) * 100)
     : 0;
 
   return (
     <div className={`p-3 rounded-lg border ${config.bgColor} border-opacity-50`}>
       <div className="flex items-center gap-2">
         {isActive && <Spinner />}
-        {job.status === "completed" && (
+        {stream.isDone && (
           <svg className="w-4 h-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
           </svg>
         )}
-        {job.status === "failed" && (
+        {stream.error && (
           <svg className="w-4 h-4 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           </svg>
         )}
         <span className={`text-sm font-medium ${config.color}`}>
-          {config.label}
+          {displayMessage}
         </span>
         {showProgress && (
           <span className="text-xs text-gray-500 ml-auto">
-            {job.downloaded_photos} / {job.total_photos} photos
+            {stream.progress!.completed} / {stream.progress!.total} photos
           </span>
         )}
       </div>
@@ -103,14 +105,16 @@ export function ScrapeStatus({ jobId, onDone }: Props) {
         </div>
       )}
 
-      {job.status === "failed" && job.error && (
-        <p className="text-xs text-red-600 mt-1.5">{job.error}</p>
+      {stream.error && (
+        <p className="text-xs text-red-600 mt-1.5">{stream.error}</p>
       )}
 
-      {job.status === "completed" && (
+      {stream.isDone && (
         <div className="mt-2 flex items-center justify-between">
           <p className="text-xs text-green-700">
-            {job.downloaded_photos} photo{job.downloaded_photos !== 1 ? "s" : ""} imported
+            {stream.progress
+              ? `${stream.progress.completed} photo${stream.progress.completed !== 1 ? "s" : ""} imported`
+              : "Import complete"}
           </p>
           <button
             onClick={onDone}

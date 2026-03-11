@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { X } from "lucide-react";
 import type { DbPhoto, UpdatePhotoMetadataDto } from "@str-renovator/shared";
+import { DownloadButton } from "@/components/ui/download-button";
 import {
   Dialog,
   DialogContent,
@@ -68,12 +69,19 @@ export function PhotoDetailModal({ photo, onSave, onClose, isSaving }: Props) {
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto p-0">
         {/* Photo preview */}
-        <div className="aspect-video bg-muted overflow-hidden rounded-t-lg">
+        <div className="aspect-video bg-muted overflow-hidden rounded-t-lg relative group">
           <img
             src={photo.url ?? ""}
             alt={photo.display_name ?? photo.filename}
             className="w-full h-full object-cover"
           />
+          {photo.url && (
+            <DownloadButton
+              url={photo.url}
+              filename={photo.display_name ?? photo.filename}
+              className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-150"
+            />
+          )}
         </div>
 
         <div className="p-5 space-y-4">

@@ -2,7 +2,6 @@ import { Router } from "express";
 import multer from "multer";
 import { checkTierLimit } from "../middleware/tier.js";
 import {
-  TIER_LIMITS,
   SUPPORTED_MIME_TYPES,
   MAX_FILE_SIZE,
   PlatformError,
@@ -10,6 +9,11 @@ import {
 import * as storageService from "../services/storage.service.js";
 import * as propertyRepo from "../repositories/property.repository.js";
 import * as photoRepo from "../repositories/photo.repository.js";
+import {
+  uploadPhotos,
+  updatePhotoMetadata,
+  deletePhoto,
+} from "../commands/index.js";
 
 const router = Router();
 const upload = multer({
@@ -31,57 +35,27 @@ router.post(
   upload.array("photos", 10),
   async (req, res, next) => {
     try {
-      const user = req.dbUser!;
-      const propertyId = req.params.propertyId as string;
-
-      // Verify property ownership
-      const property = await propertyRepo.findByIdWithColumns(propertyId, user.id, "id");
-
-      if (!property) {
-        throw PlatformError.notFound("Property", propertyId ?? req.params.propertyId);
-      }
-
-      // Check photo count limit
-      const count = await photoRepo.countByProperty(propertyId);
-
-      const files = req.files as Express.Multer.File[];
-      if (!files || files.length === 0) {
-        throw PlatformError.validationError("No photos provided");
-      }
-
-      const limit = (req as any).tierLimit ?? TIER_LIMITS[user.tier].photosPerProperty;
-      if (count + files.length > limit) {
-        throw PlatformError.tierLimitReached("photos per property", limit);
-      }
-
-      // Upload each file
-      const insertedPhotos = [];
-      for (const file of files) {
-        const storagePath = await storageService.uploadPhoto(
-          file.buffer,
-          user.id,
-          propertyId,
-          file.originalname,
-          file.mimetype
-        );
-
-        const photo = await photoRepo.create({
-          property_id: propertyId,
-          user_id: user.id,
-          filename: file.originalname,
-          storage_path: storagePath,
-          mime_type: file.mimetype,
-          source: "upload",
-        });
-
-        insertedPhotos.push(photo);
-      }
-
-      res.status(201).json(insertedPhotos);
+      const files = (req.files as Express.Multer.File[]) ?? [];
+      const result = await uploadPhotos(
+        {
+          propertyId: req.params.propertyId as string,
+          files: files.map((f) => ({
+            buffer: f.buffer,
+            originalname: f.originalname,
+            mimetype: f.mimetype,
+          })),
+        },
+        {
+          userId: req.dbUser!.id,
+          user: req.dbUser!,
+          tierLimit: req.tierLimit,
+        },
+      );
+      res.status(201).json(result);
     } catch (err) {
       next(err);
     }
-  }
+  },
 );
 
 // GET /properties/:propertyId/photos - List photos
@@ -104,12 +78,8 @@ router.get("/properties/:propertyId/photos", async (req, res, next) => {
     const photosWithUrls = (
       await Promise.all(
         photos.map(async (photo: any) => {
-          try {
-            const url = await storageService.getSignedUrl(photo.storage_path);
-            return { ...photo, url };
-          } catch {
-            return null;
-          }
+          const url = await storageService.getSignedUrlOrNull(photo.storage_path);
+          return url ? { ...photo, url } : null;
         })
       )
     ).filter(Boolean);
@@ -123,27 +93,12 @@ router.get("/properties/:propertyId/photos", async (req, res, next) => {
 // PATCH /photos/:id - Update photo metadata
 router.patch("/photos/:id", async (req, res, next) => {
   try {
-    const user = req.dbUser!;
-
-    const photo = await photoRepo.findByIdAndUser(req.params.id, user.id);
-
-    if (!photo) {
-      throw PlatformError.notFound("Photo", req.params.id);
-    }
-
     const { display_name, description, tags, constraints } = req.body;
-    const updates: Record<string, unknown> = {};
-    if (display_name !== undefined) updates.display_name = display_name;
-    if (description !== undefined) updates.description = description;
-    if (tags !== undefined) updates.tags = tags;
-    if (constraints !== undefined) updates.constraints = constraints;
-
-    if (Object.keys(updates).length === 0) {
-      throw PlatformError.validationError("No fields to update");
-    }
-
-    const updated = await photoRepo.update(req.params.id, updates);
-    res.json(updated);
+    const result = await updatePhotoMetadata(
+      { photoId: req.params.id, display_name, description, tags, constraints },
+      { userId: req.dbUser!.id, user: req.dbUser! },
+    );
+    res.json(result);
   } catch (err) {
     next(err);
   }
@@ -152,16 +107,10 @@ router.patch("/photos/:id", async (req, res, next) => {
 // DELETE /photos/:id - Delete photo
 router.delete("/photos/:id", async (req, res, next) => {
   try {
-    const user = req.dbUser!;
-
-    const photo = await photoRepo.findByIdAndUser(req.params.id, user.id);
-
-    if (!photo) {
-      throw PlatformError.notFound("Photo", req.params.id);
-    }
-
-    await storageService.deletePhoto(photo.storage_path);
-    await photoRepo.remove(req.params.id);
+    await deletePhoto(
+      { photoId: req.params.id },
+      { userId: req.dbUser!.id, user: req.dbUser! },
+    );
     res.status(204).send();
   } catch (err) {
     next(err);

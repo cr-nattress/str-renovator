@@ -1,8 +1,18 @@
 import { Router } from "express";
 import { z } from "zod";
 import { checkTierLimit } from "../middleware/tier.js";
-import { TIER_LIMITS, PlatformError } from "@str-renovator/shared";
+import { PlatformError } from "@str-renovator/shared";
 import * as propertyRepo from "../repositories/property.repository.js";
+import * as photoRepo from "../repositories/photo.repository.js";
+import * as analysisRepo from "../repositories/analysis.repository.js";
+import * as storageService from "../services/storage.service.js";
+import {
+  createProperty,
+  createPropertyFromUrl,
+  updateProperty,
+  deleteProperty,
+} from "../commands/index.js";
+import { computePropertyActions } from "../actions/index.js";
 
 const router = Router();
 
@@ -32,24 +42,24 @@ const updatePropertySchema = z.object({
   country: z.string().optional(),
   scraped_data: z.record(z.unknown()).optional(),
   location_profile: z.record(z.unknown()).optional(),
+  property_profile: z.record(z.unknown()).optional(),
+  review_analysis: z.record(z.unknown()).optional(),
 });
 
-// POST / - Create property
-router.post("/", checkTierLimit("properties"), async (req, res, next) => {
+// POST /from-url - Create property from listing URL + start scrape
+const fromUrlSchema = z.object({
+  listingUrl: z.string().url(),
+});
+
+router.post("/from-url", checkTierLimit("properties"), async (req, res, next) => {
   try {
-    const user = req.dbUser!;
-    const body = createPropertySchema.parse(req.body);
-
-    // Check current count against tier limit
-    const count = await propertyRepo.countByUser(user.id);
-
-    const limit = (req as any).tierLimit ?? TIER_LIMITS[user.tier].properties;
-    if (count >= limit) {
-      throw PlatformError.tierLimitReached("properties", limit);
-    }
-
-    const data = await propertyRepo.create({ ...body, user_id: user.id });
-    res.status(201).json(data);
+    const body = fromUrlSchema.parse(req.body);
+    const result = await createPropertyFromUrl(body, {
+      userId: req.dbUser!.id,
+      user: req.dbUser!,
+      tierLimit: req.tierLimit,
+    });
+    res.status(201).json(result);
   } catch (err) {
     if (err instanceof z.ZodError) {
       return next(PlatformError.validationError(err.errors.map(e => e.message).join(", ")));
@@ -58,18 +68,59 @@ router.post("/", checkTierLimit("properties"), async (req, res, next) => {
   }
 });
 
-// GET / - List user's properties
+// POST / - Create property
+router.post("/", checkTierLimit("properties"), async (req, res, next) => {
+  try {
+    const body = createPropertySchema.parse(req.body);
+    const result = await createProperty(body, {
+      userId: req.dbUser!.id,
+      user: req.dbUser!,
+      tierLimit: req.tierLimit,
+    });
+    res.status(201).json(result);
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      return next(PlatformError.validationError(err.errors.map(e => e.message).join(", ")));
+    }
+    next(err);
+  }
+});
+
+// GET / - List user's properties with summary data (photos, analyses)
 router.get("/", async (req, res, next) => {
   try {
     const user = req.dbUser!;
-    const data = await propertyRepo.listByUser(user.id);
-    res.json(data);
+    const properties = await propertyRepo.listByUser(user.id);
+
+    const enriched = await Promise.all(
+      properties.map(async (property) => {
+        const [photoCount, photos, latestAnalysis] = await Promise.all([
+          photoRepo.countByProperty(property.id),
+          photoRepo.listByProperty(property.id).then((all) => all.slice(0, 5)),
+          analysisRepo.findLatestByProperty(property.id, user.id),
+        ]);
+
+        const signedUrls = await Promise.all(
+          photos.map((photo) => storageService.getSignedUrlOrNull(photo.storage_path))
+        );
+        const thumbnailUrls = signedUrls.filter((url): url is string => url !== null);
+
+        return {
+          ...property,
+          photo_count: photoCount,
+          thumbnail_urls: thumbnailUrls,
+          latest_analysis: latestAnalysis,
+        };
+      })
+    );
+
+    res.json(enriched);
   } catch (err) {
     next(err);
   }
 });
 
-// GET /:id - Get single property
+// GET /:id - Get single property with available actions
 router.get("/:id", async (req, res, next) => {
   try {
     const user = req.dbUser!;
@@ -78,7 +129,14 @@ router.get("/:id", async (req, res, next) => {
     if (!data) {
       throw PlatformError.notFound("Property", req.params.id);
     }
-    res.json(data);
+
+    const photoCount = await photoRepo.countByProperty(data.id);
+    const availableActions = computePropertyActions(data, {
+      photoCount,
+      hasScrapedData: !!data.scraped_data,
+    });
+
+    res.json({ ...data, availableActions });
   } catch (err) {
     next(err);
   }
@@ -87,15 +145,12 @@ router.get("/:id", async (req, res, next) => {
 // PATCH /:id - Update property
 router.patch("/:id", async (req, res, next) => {
   try {
-    const user = req.dbUser!;
     const body = updatePropertySchema.parse(req.body);
-
-    const data = await propertyRepo.update(req.params.id, user.id, body);
-
-    if (!data) {
-      throw PlatformError.notFound("Property", req.params.id);
-    }
-    res.json(data);
+    const result = await updateProperty(
+      { propertyId: req.params.id, ...body },
+      { userId: req.dbUser!.id, user: req.dbUser! },
+    );
+    res.json(result);
   } catch (err) {
     if (err instanceof z.ZodError) {
       return next(PlatformError.validationError(err.errors.map(e => e.message).join(", ")));
@@ -107,8 +162,10 @@ router.patch("/:id", async (req, res, next) => {
 // DELETE /:id - Delete property
 router.delete("/:id", async (req, res, next) => {
   try {
-    const user = req.dbUser!;
-    await propertyRepo.remove(req.params.id, user.id);
+    await deleteProperty(
+      { propertyId: req.params.id },
+      { userId: req.dbUser!.id, user: req.dbUser! },
+    );
     res.status(204).send();
   } catch (err) {
     next(err);

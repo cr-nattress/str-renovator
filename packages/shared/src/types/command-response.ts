@@ -8,19 +8,17 @@
  * actions. `events` captures domain events emitted during the command.
  */
 
+import type { DomainEvent } from "./domain-events.js";
+
 export interface AvailableAction {
   label: string;
   command: string;
   params?: Record<string, unknown>;
   confirmation?: string;
-}
-
-export interface DomainEvent {
-  type: string;
-  entityId: string;
-  entityType: string;
-  data?: Record<string, unknown>;
-  timestamp: string;
+  variant?: "primary" | "secondary" | "destructive";
+  icon?: string;
+  disabled?: boolean;
+  disabledReason?: string;
 }
 
 export interface CommandResponse<T> {

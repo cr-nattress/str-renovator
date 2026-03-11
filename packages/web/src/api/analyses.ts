@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/clerk-react";
-import type { DbAnalysis, CreateAnalysisDto } from "@str-renovator/shared";
+import type { DbAnalysis, CreateAnalysisDto, AvailableAction } from "@str-renovator/shared";
 import { apiFetch } from "./client";
 
 export function useAnalyses(propertyId: string) {
@@ -25,6 +25,7 @@ export type AnalysisWithPhotos = DbAnalysis & {
   analysis_photos: (import("@str-renovator/shared").DbAnalysisPhoto & {
     photos: import("@str-renovator/shared").DbPhoto & { url?: string };
   })[];
+  availableActions?: AvailableAction[];
 };
 
 export function useAnalysis(id: string) {

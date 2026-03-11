@@ -20,7 +20,7 @@ vi.mock("../../config/rate-limiter.js", () => ({
   chatCompletionLimiter: (fn: () => unknown) => fn(),
 }));
 
-import { generateTextReport } from "../report.service.js";
+import { generateTextReport } from "../../skills/generate-text-report/index.js";
 
 describe("generateTextReport", () => {
   beforeEach(() => {

@@ -20,7 +20,7 @@ vi.mock("../../config/rate-limiter.js", () => ({
   chatCompletionLimiter: (fn: () => unknown) => fn(),
 }));
 
-import { synthesizePropertyProfile } from "../property-synthesis.service.js";
+import { synthesizePropertyProfile } from "../../skills/synthesize-property-profile/index.js";
 
 describe("synthesizePropertyProfile", () => {
   beforeEach(() => {

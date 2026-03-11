@@ -8,6 +8,8 @@ export interface PhotoAnalysis {
   strengths: string[];
   renovations: string;
   priority: Priority;
+  tags?: string[];
+  constraints?: string[];
   confidence?: number;
   reasoning?: string;
 }
@@ -18,6 +20,7 @@ export interface ActionItem {
   estimated_cost: string;
   impact: Priority;
   rooms_affected: string[];
+  reasoning?: string;
 }
 
 export interface PropertyAnalysis {

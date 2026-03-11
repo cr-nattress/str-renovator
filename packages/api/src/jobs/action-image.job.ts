@@ -1,6 +1,6 @@
 import type { Job } from "bullmq";
 import { createChildLogger } from "../config/logger.js";
-import * as renovationService from "../services/renovation.service.js";
+import * as renovationService from "../skills/edit-image/index.js";
 import * as storageService from "../services/storage.service.js";
 import { buildActionItemImagePrompt, type ImageQuality, type ImageSize } from "@str-renovator/shared";
 import * as journeyRepo from "../repositories/design-journey.repository.js";

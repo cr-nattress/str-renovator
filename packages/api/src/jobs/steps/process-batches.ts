@@ -12,6 +12,7 @@ import * as batchService from "../../services/batch.service.js";
 import { CONCURRENCY, type DbPhoto } from "@str-renovator/shared";
 import type { Logger } from "pino";
 import * as analysisRepo from "../../repositories/analysis.repository.js";
+import { serializeError } from "../../config/errors.js";
 
 export interface BatchResult {
   completedCount: number;
@@ -52,7 +53,7 @@ export async function processBatches(
           failedCount++;
           await analysisRepo.incrementCounter("failed_batches", analysisId);
           log.error(
-            { batchIndex: batch.batch_index, err: err instanceof Error ? err.message : err },
+            { batchIndex: batch.batch_index, err: serializeError(err) },
             "batch failed"
           );
         }

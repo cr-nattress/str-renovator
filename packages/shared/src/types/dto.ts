@@ -30,6 +30,10 @@ export interface UpdatePropertyDto {
   state?: string;
   zip_code?: string;
   country?: string;
+  scraped_data?: Record<string, unknown>;
+  location_profile?: Record<string, unknown>;
+  property_profile?: Record<string, unknown>;
+  review_analysis?: Record<string, unknown>;
 }
 
 export interface CreateAnalysisDto {

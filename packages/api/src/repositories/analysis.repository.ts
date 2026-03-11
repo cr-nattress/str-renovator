@@ -1,5 +1,6 @@
 import { supabase } from "../config/supabase.js";
 import type { DbAnalysis } from "@str-renovator/shared";
+import { logger } from "../config/logger.js";
 
 export async function create(data: {
   property_id: string;
@@ -39,7 +40,11 @@ export async function findByIdWithPhotos(
     .eq("id", id)
     .eq("user_id", userId)
     .single();
-  if (error || !data) return null;
+  if (error) {
+    logger.error({ analysisId: id, err: error.message, code: error.code }, "findByIdWithPhotos query failed");
+    return null;
+  }
+  if (!data) return null;
   return data as DbAnalysis & { analysis_photos: unknown[] };
 }
 
@@ -112,6 +117,33 @@ export async function updateFields(
     .single();
   if (error || !data) throw error ?? new Error("Failed to update analysis");
   return data as DbAnalysis;
+}
+
+export async function updateById(
+  id: string,
+  data: Record<string, unknown>,
+): Promise<void> {
+  const { error } = await supabase
+    .from("analyses")
+    .update(data)
+    .eq("id", id);
+  if (error) throw error;
+}
+
+export async function findLatestByProperty(
+  propertyId: string,
+  userId: string
+): Promise<{ id: string; status: string; created_at: string } | null> {
+  const { data } = await supabase
+    .from("analyses")
+    .select("id, status, created_at")
+    .eq("property_id", propertyId)
+    .eq("user_id", userId)
+    .eq("is_active", true)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return data ?? null;
 }
 
 export async function archive(id: string): Promise<void> {

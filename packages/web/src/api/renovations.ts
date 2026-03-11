@@ -6,16 +6,19 @@ import type {
   DbPhoto,
   SubmitFeedbackDto,
   DbFeedback,
+  AvailableAction,
 } from "@str-renovator/shared";
 import { apiFetch } from "./client";
 
 export interface RenovationWithDetails extends DbRenovation {
+  url?: string | null;
   feedback?: DbFeedback;
 }
 
 export interface AnalysisPhotoWithDetails extends DbAnalysisPhoto {
-  photo: DbPhoto;
+  photo: DbPhoto & { url?: string | null };
   renovation_images: RenovationWithDetails[];
+  availableActions?: AvailableAction[];
 }
 
 export function useRenovations(analysisPhotoId: string) {

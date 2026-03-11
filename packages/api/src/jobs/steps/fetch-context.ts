@@ -10,6 +10,7 @@ import type { DbPhoto, DbProperty } from "@str-renovator/shared";
 import * as analysisRepo from "../../repositories/analysis.repository.js";
 import * as propertyRepo from "../../repositories/property.repository.js";
 import * as photoRepo from "../../repositories/photo.repository.js";
+import { logger } from "../../config/logger.js";
 
 export interface AnalysisContext {
   typedPhotos: DbPhoto[];
@@ -23,12 +24,22 @@ export async function fetchAnalysisContext(
   await analysisRepo.updateStatus(analysisId, "analyzing");
 
   const property = await propertyRepo.findById(propertyId);
+  if (!property) {
+    logger.error({ analysisId, propertyId }, "property not found during analysis context fetch");
+    throw new Error(`Property ${propertyId} not found`);
+  }
 
   const photos = await photoRepo.listByProperty(propertyId);
 
   if (!photos || photos.length === 0) {
+    logger.error({ analysisId, propertyId }, "no photos found for property");
     throw new Error("No photos found for property");
   }
+
+  logger.info(
+    { analysisId, propertyId, photoCount: photos.length, filenames: photos.map(p => p.filename) },
+    "analysis context fetched"
+  );
 
   return {
     typedPhotos: photos,

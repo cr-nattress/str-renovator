@@ -1,6 +1,6 @@
 import type { Job } from "bullmq";
 import { createChildLogger } from "../config/logger.js";
-import { researchLocation } from "../services/location-research.service.js";
+import { researchLocation } from "../skills/research-location/index.js";
 import * as propertyRepo from "../repositories/property.repository.js";
 
 interface LocationResearchJobData {

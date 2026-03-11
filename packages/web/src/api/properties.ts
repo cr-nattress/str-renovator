@@ -4,8 +4,19 @@ import type {
   DbProperty,
   CreatePropertyDto,
   UpdatePropertyDto,
+  AvailableAction,
 } from "@str-renovator/shared";
 import { apiFetch } from "./client";
+
+export type PropertyWithSummary = DbProperty & {
+  photo_count: number;
+  thumbnail_urls: string[];
+  latest_analysis: {
+    id: string;
+    status: string;
+    created_at: string;
+  } | null;
+};
 
 export function useProperties() {
   const { getToken } = useAuth();
@@ -13,10 +24,14 @@ export function useProperties() {
     queryKey: ["properties"],
     queryFn: async () => {
       const token = await getToken();
-      return apiFetch<DbProperty[]>("/api/v1/properties", token!);
+      return apiFetch<PropertyWithSummary[]>("/api/v1/properties", token!);
     },
   });
 }
+
+export type PropertyWithActions = DbProperty & {
+  availableActions?: AvailableAction[];
+};
 
 export function useProperty(id: string) {
   const { getToken } = useAuth();
@@ -24,7 +39,7 @@ export function useProperty(id: string) {
     queryKey: ["properties", id],
     queryFn: async () => {
       const token = await getToken();
-      return apiFetch<DbProperty>(`/api/v1/properties/${id}`, token!);
+      return apiFetch<PropertyWithActions>(`/api/v1/properties/${id}`, token!);
     },
     enabled: !!id,
   });
@@ -60,6 +75,36 @@ export function useUpdateProperty(id: string) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["properties", id] });
+      queryClient.invalidateQueries({ queryKey: ["properties"] });
+    },
+  });
+}
+
+interface CreateFromUrlResponse {
+  data: {
+    property: DbProperty;
+    scrape_job_id: string;
+  };
+  events: unknown[];
+  availableActions: AvailableAction[];
+}
+
+export function useCreatePropertyFromUrl() {
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { listingUrl: string }) => {
+      const token = await getToken();
+      return apiFetch<CreateFromUrlResponse>(
+        "/api/v1/properties/from-url",
+        token!,
+        {
+          method: "POST",
+          body: JSON.stringify(input),
+        },
+      );
+    },
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["properties"] });
     },
   });

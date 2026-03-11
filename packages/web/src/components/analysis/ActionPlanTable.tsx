@@ -1,7 +1,8 @@
 import { Link } from "react-router-dom";
 import { ImageIcon, Loader2, AlertTriangle } from "lucide-react";
-import type { ActionItem, Priority } from "@str-renovator/shared";
+import type { ActionItem } from "@str-renovator/shared";
 import type { JourneyItemWithImage } from "../../api/journey";
+import { ReasoningExpander } from "@/components/ai/ReasoningExpander";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -12,12 +13,7 @@ import {
   TableRow,
   TableCell,
 } from "@/components/ui/table";
-
-const IMPACT_VARIANT: Record<Priority, "default" | "secondary" | "destructive"> = {
-  high: "destructive",
-  medium: "secondary",
-  low: "default",
-};
+import { PRIORITY_BADGE_VARIANT } from "../properties/shared-renderers";
 
 interface Props {
   actionPlan: ActionItem[];
@@ -54,7 +50,7 @@ export function ActionPlanTable({ actionPlan, journeyItems }: Props) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {actionPlan.map((item) => {
+            {actionPlan.map((item, idx) => {
               const imageUrl = findMatchingImage(item, journeyItems);
               const matchingItem = journeyItems?.find(
                 (ji) => ji.priority === item.priority && ji.title === item.item
@@ -62,7 +58,7 @@ export function ActionPlanTable({ actionPlan, journeyItems }: Props) {
               const imageStatus = matchingItem?.image_status;
 
               return (
-                <TableRow key={item.priority}>
+                <TableRow key={`${item.priority}-${idx}`}>
                   <TableCell className="text-muted-foreground font-medium">
                     {item.priority}
                   </TableCell>
@@ -88,19 +84,24 @@ export function ActionPlanTable({ actionPlan, journeyItems }: Props) {
                     )}
                   </TableCell>
                   <TableCell>
-                    {matchingItem ? (
-                      <Link to={`/journey/${matchingItem.id}`} className="hover:text-primary transition-colors">
-                        {item.item}
-                      </Link>
-                    ) : (
-                      item.item
-                    )}
+                    <div>
+                      {matchingItem ? (
+                        <Link to={`/journey/${matchingItem.id}`} className="hover:text-primary transition-colors">
+                          {item.item}
+                        </Link>
+                      ) : (
+                        item.item
+                      )}
+                      {item.reasoning && (
+                        <ReasoningExpander reasoning={item.reasoning} />
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {item.estimated_cost}
                   </TableCell>
                   <TableCell>
-                    <Badge variant={IMPACT_VARIANT[item.impact]}>
+                    <Badge variant={PRIORITY_BADGE_VARIANT[item.impact]}>
                       {item.impact}
                     </Badge>
                   </TableCell>

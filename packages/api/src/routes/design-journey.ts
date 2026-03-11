@@ -5,6 +5,10 @@ import * as storageService from "../services/storage.service.js";
 import * as propertyRepo from "../repositories/property.repository.js";
 import * as journeyRepo from "../repositories/design-journey.repository.js";
 import * as photoRepo from "../repositories/photo.repository.js";
+import {
+  createJourneyItem,
+  updateJourneyItem,
+} from "../commands/index.js";
 
 const router = Router();
 
@@ -40,17 +44,10 @@ router.get("/properties/:propertyId/journey", async (req, res, next) => {
 
     // Generate signed URLs for items with images
     const itemsWithUrls = await Promise.all(
-      (data ?? []).map(async (item: any) => {
-        let image_url: string | null = null;
-        if (item.image_storage_path) {
-          try {
-            image_url = await storageService.getSignedUrl(item.image_storage_path);
-          } catch {
-            // Signed URL generation failed — leave as null
-          }
-        }
-        return { ...item, image_url };
-      })
+      (data ?? []).map(async (item: any) => ({
+        ...item,
+        image_url: await storageService.getSignedUrlOrNull(item.image_storage_path),
+      }))
     );
 
     res.json(itemsWithUrls);
@@ -62,24 +59,12 @@ router.get("/properties/:propertyId/journey", async (req, res, next) => {
 // POST /properties/:propertyId/journey - Create journey item
 router.post("/properties/:propertyId/journey", async (req, res, next) => {
   try {
-    const user = req.dbUser!;
-    const { propertyId } = req.params;
     const body = createJourneyItemSchema.parse(req.body);
-
-    // Verify ownership
-    const property = await propertyRepo.findByIdWithColumns(propertyId, user.id, "id");
-
-    if (!property) {
-      throw PlatformError.notFound("Property", propertyId);
-    }
-
-    const data = await journeyRepo.create({
-      ...body,
-      property_id: propertyId,
-      user_id: user.id,
-    });
-
-    res.status(201).json(data);
+    const result = await createJourneyItem(
+      { propertyId: req.params.propertyId, ...body },
+      { userId: req.dbUser!.id, user: req.dbUser! },
+    );
+    res.status(201).json(result);
   } catch (err) {
     if (err instanceof z.ZodError) {
       return next(PlatformError.validationError(err.errors.map(e => e.message).join(", ")));
@@ -99,28 +84,13 @@ router.get("/journey/:id", async (req, res, next) => {
       throw PlatformError.notFound("Journey item", req.params.id);
     }
 
-    // Generate signed URL for the AI-generated image
-    let image_url: string | null = null;
-    if (item.image_storage_path) {
-      try {
-        image_url = await storageService.getSignedUrl(item.image_storage_path);
-      } catch {
-        // Signed URL generation failed — leave as null
-      }
-    }
+    // Generate signed URLs for AI-generated image and source photo
+    const image_url = await storageService.getSignedUrlOrNull(item.image_storage_path);
 
-    // Generate signed URL for the original source photo
     let source_photo_url: string | null = null;
     if (item.source_photo_id) {
       const photo = await photoRepo.findStoragePath(item.source_photo_id);
-
-      if (photo?.storage_path) {
-        try {
-          source_photo_url = await storageService.getSignedUrl(photo.storage_path);
-        } catch {
-          // Signed URL generation failed — leave as null
-        }
-      }
+      source_photo_url = await storageService.getSignedUrlOrNull(photo?.storage_path);
     }
 
     res.json({ ...item, image_url, source_photo_url });
@@ -132,15 +102,12 @@ router.get("/journey/:id", async (req, res, next) => {
 // PATCH /journey/:id - Update journey item
 router.patch("/journey/:id", async (req, res, next) => {
   try {
-    const user = req.dbUser!;
     const body = updateJourneyItemSchema.parse(req.body);
-
-    const data = await journeyRepo.update(req.params.id, user.id, body);
-
-    if (!data) {
-      throw PlatformError.notFound("Journey item", req.params.id);
-    }
-    res.json(data);
+    const result = await updateJourneyItem(
+      { journeyItemId: req.params.id, ...body },
+      { userId: req.dbUser!.id, user: req.dbUser! },
+    );
+    res.json(result);
   } catch (err) {
     if (err instanceof z.ZodError) {
       return next(PlatformError.validationError(err.errors.map(e => e.message).join(", ")));

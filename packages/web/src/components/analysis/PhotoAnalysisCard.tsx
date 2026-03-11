@@ -1,18 +1,12 @@
 import { useNavigate } from "react-router-dom";
-import type { DbAnalysisPhoto, DbPhoto, Priority } from "@str-renovator/shared";
+import type { DbAnalysisPhoto, DbPhoto } from "@str-renovator/shared";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfidenceIndicator } from "../ai/ConfidenceIndicator";
 import { ReasoningExpander } from "../ai/ReasoningExpander";
-
-const BASE_URL = import.meta.env.VITE_API_URL || "";
-
-const PRIORITY_VARIANT: Record<Priority, "destructive" | "secondary" | "default"> = {
-  high: "destructive",
-  medium: "secondary",
-  low: "default",
-};
+import { DownloadButton } from "@/components/ui/download-button";
+import { PRIORITY_BADGE_VARIANT } from "../properties/shared-renderers";
 
 interface Props {
   analysisPhoto: DbAnalysisPhoto & { photos: DbPhoto & { url?: string } };
@@ -25,18 +19,31 @@ export function PhotoAnalysisCard({ analysisPhoto, confidence, reasoning }: Prop
 
   return (
     <Card className="overflow-hidden">
-      <div className="aspect-video relative">
-        <img
-          src={`${BASE_URL}/api/v1/photos/${analysisPhoto.photos.id}/file`}
-          alt={analysisPhoto.room}
-          className="w-full h-full object-cover"
-        />
+      <div className="aspect-video relative group bg-muted">
+        {analysisPhoto.photos.url ? (
+          <img
+            src={analysisPhoto.photos.url}
+            alt={analysisPhoto.room}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-sm text-muted-foreground">
+            No image available
+          </div>
+        )}
         <Badge
-          variant={PRIORITY_VARIANT[analysisPhoto.priority]}
+          variant={PRIORITY_BADGE_VARIANT[analysisPhoto.priority]}
           className="absolute top-2 right-2"
         >
           {analysisPhoto.priority}
         </Badge>
+        {analysisPhoto.photos.url && (
+          <DownloadButton
+            url={analysisPhoto.photos.url}
+            filename={`${analysisPhoto.room}.png`}
+            className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-150"
+          />
+        )}
       </div>
 
       <CardContent className="p-4">

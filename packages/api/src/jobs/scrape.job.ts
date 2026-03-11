@@ -1,13 +1,16 @@
 import type { Job } from "bullmq";
 import { createChildLogger } from "../config/logger.js";
+import { serializeError } from "../config/errors.js";
 import {
   scrapeListingPhotos,
+  scrapeListingReviews,
   downloadImage,
 } from "../services/scraper.service.js";
 import { uploadPhoto } from "../services/storage.service.js";
-import { extractListingData } from "../services/listing-extraction.service.js";
-import { researchLocation } from "../services/location-research.service.js";
-import { synthesizePropertyProfile } from "../services/property-synthesis.service.js";
+import { extractListingData } from "../skills/extract-listing-data/index.js";
+import { analyzeReviews } from "../skills/analyze-reviews/index.js";
+import { researchLocation } from "../skills/research-location/index.js";
+import { synthesizePropertyProfile } from "../skills/synthesize-property-profile/index.js";
 import * as scrapeJobRepo from "../repositories/scrape-job.repository.js";
 import * as propertyRepo from "../repositories/property.repository.js";
 import * as photoRepo from "../repositories/photo.repository.js";
@@ -41,6 +44,9 @@ export async function processScrapeJob(
     await scrapeJobRepo.updateStatus(scrapeJobId, "extracting_data");
     log.info("extracting listing data");
 
+    // Fetch current property once — reused by Phase 2 (field population) and Phase 2.5 (review analysis)
+    const currentProperty = await propertyRepo.findById(propertyId);
+
     try {
       const { data: scrapedData, metadata: extractionMeta } = await extractListingData(pageContent, url);
       log.info({ model: extractionMeta.model, tokensUsed: extractionMeta.tokensUsed, promptVersion: extractionMeta.promptVersion }, "listing extraction AI metadata");
@@ -49,9 +55,6 @@ export async function processScrapeJob(
       const propertyUpdate: Record<string, unknown> = {
         scraped_data: scrapedData,
       };
-
-      // Fetch current property to check which fields are empty
-      const currentProperty = await propertyRepo.findById(propertyId);
 
       // Auto-populate empty fields
       if (currentProperty) {
@@ -87,9 +90,40 @@ export async function processScrapeJob(
       log.info("listing data extracted");
     } catch (err) {
       log.warn(
-        { err: err instanceof Error ? err.message : err },
+        { err: serializeError(err) },
         "data extraction failed (non-fatal)"
       );
+    }
+
+    // Phase 2.5: Scrape and analyze guest reviews (Airbnb only)
+    if (url.includes("airbnb")) {
+      try {
+        await scrapeJobRepo.updateStatus(scrapeJobId, "analyzing_reviews");
+        log.info("scraping guest reviews");
+
+        const { reviewContent, reviewCount } = await scrapeListingReviews(url);
+
+        if (reviewContent.length > 0) {
+          log.info({ reviewCount }, "reviews scraped, analyzing");
+
+          const { data: reviewData, metadata: reviewMeta } = await analyzeReviews(
+            reviewContent,
+            currentProperty?.name ?? undefined
+          );
+          log.info({ model: reviewMeta.model, tokensUsed: reviewMeta.tokensUsed, promptVersion: reviewMeta.promptVersion }, "review analysis AI metadata");
+
+          await propertyRepo.updateById(propertyId, { review_analysis: reviewData });
+          await scrapeJobRepo.updateFields(scrapeJobId, { reviews_analyzed: true });
+          log.info("review analysis completed");
+        } else {
+          log.info("no reviews found on listing page");
+        }
+      } catch (err) {
+        log.warn(
+          { err: serializeError(err) },
+          "review analysis failed (non-fatal)"
+        );
+      }
     }
 
     // Phase 3: Download photos
@@ -121,7 +155,7 @@ export async function processScrapeJob(
         await scrapeJobRepo.updateFields(scrapeJobId, { downloaded_photos: downloaded });
       } catch (err) {
         log.warn(
-          { url: photo.url, err: err instanceof Error ? err.message : err },
+          { url: photo.url, err: serializeError(err) },
           "photo download failed"
         );
       }
@@ -167,7 +201,7 @@ export async function processScrapeJob(
       }
     } catch (err) {
       log.warn(
-        { err: err instanceof Error ? err.message : err },
+        { err: serializeError(err) },
         "location research failed (non-fatal)"
       );
     }
@@ -181,12 +215,14 @@ export async function processScrapeJob(
 
       const scrapedData = propForSynthesis?.scraped_data as Record<string, unknown> | null;
       const locationProfile = propForSynthesis?.location_profile as Record<string, unknown> | null;
+      const reviewAnalysis = propForSynthesis?.review_analysis as Record<string, unknown> | null;
 
       if (scrapedData && locationProfile) {
         const { data: propertyProfile, metadata: synthesisMeta } = await synthesizePropertyProfile({
           scrapedData,
           locationProfile,
           propertyName: propForSynthesis?.name ?? undefined,
+          reviewAnalysis: reviewAnalysis ?? undefined,
         });
         log.info({ model: synthesisMeta.model, tokensUsed: synthesisMeta.tokensUsed, promptVersion: synthesisMeta.promptVersion }, "property synthesis AI metadata");
 
@@ -198,7 +234,7 @@ export async function processScrapeJob(
       }
     } catch (err) {
       log.warn(
-        { err: err instanceof Error ? err.message : err },
+        { err: serializeError(err) },
         "property synthesis failed (non-fatal)"
       );
     }

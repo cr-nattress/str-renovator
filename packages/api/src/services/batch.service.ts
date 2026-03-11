@@ -1,14 +1,13 @@
-import { openai } from "../config/openai.js";
 import { env } from "../config/env.js";
-import { chatCompletionLimiter } from "../config/rate-limiter.js";
-import * as analysisService from "./analysis.service.js";
+import { logger } from "../config/logger.js";
+import { serializeError } from "../config/errors.js";
+import { analyzeProperty } from "../skills/analyze-property/index.js";
+import { aggregateBatchAnalyses } from "../skills/aggregate-batch-analyses/index.js";
 import * as storageService from "./storage.service.js";
 import * as analysisBatchRepo from "../repositories/analysis-batch.repository.js";
 import {
-  AGGREGATION_SYSTEM_PROMPT,
   AGGREGATION_PROMPT_VERSION,
   buildBatchAnalysisUserPrompt,
-  PropertyAnalysisSchema,
   type AiMetadata,
   type AiResult,
   type DbAnalysisBatch,
@@ -51,19 +50,37 @@ export async function processSingleBatch(
   context: string | undefined,
   totalBatches: number
 ): Promise<AiResult<PropertyAnalysis>> {
+  const batchLog = logger.child({ batchId: batch.id, batchIndex: batch.batch_index, analysisId: batch.analysis_id });
+
   // Mark batch as processing
   await analysisBatchRepo.updateStatus(batch.id, "processing");
+  batchLog.info({ photoIds: batch.photo_ids }, "batch processing started");
 
   try {
     // Download photo buffers for this batch
     const batchPhotos = photos.filter((p) => batch.photo_ids.includes(p.id));
+    batchLog.info({ matchedPhotos: batchPhotos.length, expectedPhotos: batch.photo_ids.length }, "downloading photos");
+
     const buffers: Buffer[] = [];
     const filenames: string[] = [];
     for (const photo of batchPhotos) {
-      const buffer = await storageService.downloadPhoto(photo.storage_path);
-      buffers.push(buffer);
-      filenames.push(photo.filename);
+      try {
+        const buffer = await storageService.downloadPhoto(photo.storage_path);
+        buffers.push(buffer);
+        filenames.push(photo.filename);
+      } catch (err) {
+        batchLog.error(
+          { photoId: photo.id, filename: photo.filename, storagePath: photo.storage_path, err: serializeError(err) },
+          "failed to download photo — skipping"
+        );
+      }
     }
+
+    if (buffers.length === 0) {
+      throw new Error("All photo downloads failed for batch");
+    }
+
+    batchLog.info({ downloadedCount: buffers.length, filenames }, "photos downloaded");
 
     // Build per-photo metadata blocks when available
     const photoMetadata: PhotoMetadataBlock[] = batchPhotos.map((p) => ({
@@ -88,11 +105,16 @@ export async function processSingleBatch(
     );
 
     // Call analysis service
-    const { data: result, metadata } = await analysisService.analyzeProperty({
+    batchLog.info({ model: env.openaiChatModel, photoCount: buffers.length }, "calling OpenAI analysis");
+    const { data: result, metadata } = await analyzeProperty({
       buffers,
       filenames,
       userPrompt,
     });
+    batchLog.info(
+      { model: metadata.model, tokensUsed: metadata.tokensUsed, resultPhotos: result.photos.length, resultFilenames: result.photos.map(p => p.filename) },
+      "OpenAI analysis returned"
+    );
 
     // Mark batch as completed with AI metadata
     await analysisBatchRepo.updateStatus(batch.id, "completed", {
@@ -102,9 +124,12 @@ export async function processSingleBatch(
       tokens_used: metadata.tokensUsed,
     });
 
+    batchLog.info("batch completed successfully");
     return { data: result, metadata };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
+    const stack = err instanceof Error ? err.stack : undefined;
+    batchLog.error({ err: message, stack }, "batch failed");
     await analysisBatchRepo.updateStatus(batch.id, "failed", { error: message });
     throw err;
   }
@@ -115,12 +140,13 @@ export async function aggregateBatchResults(
   analysisId: string
 ): Promise<AiResult<PropertyAnalysis>> {
   const batches = await analysisBatchRepo.listCompleted(analysisId);
+  logger.info({ analysisId, completedBatchCount: batches.length }, "aggregating batch results");
 
   const results = batches.map(
     (b: any) => b.result_json as PropertyAnalysis
   );
 
-  // If only one batch succeeded, use its result directly (reuse batch metadata)
+  // For a single batch, reuse the batch's own metadata when available
   if (results.length === 1) {
     const batch = batches[0] as any;
     const metadata: AiMetadata = {
@@ -128,46 +154,10 @@ export async function aggregateBatchResults(
       tokensUsed: batch.tokens_used ?? 0,
       promptVersion: batch.prompt_version ?? AGGREGATION_PROMPT_VERSION,
     };
+    logger.info({ analysisId }, "single batch — using result directly, no aggregation needed");
     return { data: results[0], metadata };
   }
 
-  // Multiple batches — call GPT-4o to merge
-  const batchSummaries = results.map((r, i) => ({
-    batch: i + 1,
-    property_assessment: r.property_assessment,
-    style_direction: r.style_direction,
-    photos: r.photos,
-    action_plan: r.action_plan,
-  }));
-
-  const response = await chatCompletionLimiter(() =>
-    openai.chat.completions.create({
-      model: env.openaiChatModel,
-      max_tokens: 4096,
-      messages: [
-        { role: "system", content: AGGREGATION_SYSTEM_PROMPT },
-        {
-          role: "user",
-          content: `Here are the batch analysis results to merge:\n\n${JSON.stringify(batchSummaries, null, 2)}`,
-        },
-      ],
-    })
-  );
-
-  const content = response.choices[0]?.message?.content;
-  if (!content) throw new Error("Empty response from aggregation model");
-
-  const cleaned = content.replace(/```json\s*|```/g, "").trim();
-  const parsed = PropertyAnalysisSchema.safeParse(JSON.parse(cleaned));
-  if (!parsed.success) {
-    throw new Error(`Aggregation response validation failed: ${parsed.error.message}`);
-  }
-
-  const metadata: AiMetadata = {
-    model: response.model,
-    tokensUsed: response.usage?.total_tokens ?? 0,
-    promptVersion: AGGREGATION_PROMPT_VERSION,
-  };
-
-  return { data: parsed.data, metadata };
+  // Delegate multi-batch aggregation to the skill
+  return aggregateBatchAnalyses(results, analysisId);
 }

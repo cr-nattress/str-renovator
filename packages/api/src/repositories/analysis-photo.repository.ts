@@ -31,10 +31,10 @@ export async function listByAnalysis(
 
 export async function findByIdWithPhoto(
   id: string
-): Promise<(DbAnalysisPhoto & { photos: { storage_path: string; filename: string } }) | null> {
+): Promise<(DbAnalysisPhoto & { photos: { id: string; property_id: string; storage_path: string; filename: string } }) | null> {
   const { data } = await supabase
     .from("analysis_photos")
-    .select("*, photos(storage_path, filename)")
+    .select("*, photos(id, property_id, storage_path, filename)")
     .eq("id", id)
     .single();
   return data as any ?? null;

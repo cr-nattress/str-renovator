@@ -20,7 +20,7 @@ vi.mock("../../config/rate-limiter.js", () => ({
   chatCompletionLimiter: (fn: () => unknown) => fn(),
 }));
 
-import { analyzeProperty } from "../analysis.service.js";
+import { analyzeProperty } from "../../skills/analyze-property/index.js";
 
 const VALID_ANALYSIS = {
   property_assessment: "Well-maintained 2BR cabin",
