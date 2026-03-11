@@ -11,9 +11,11 @@ const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
 export const screenshotFixture = base.extend<{
   screenshot: ScreenshotHelper;
 }>({
-  screenshot: async ({}, use, testInfo: TestInfo) => {
-    const suiteName = path.basename(testInfo.file, ".spec.ts");
-    const testSlug = testInfo.title
+  screenshot: [async ({}, use, testInfo: TestInfo) => {
+    const suiteName = testInfo?.file
+      ? path.basename(testInfo.file, ".spec.ts")
+      : "unknown-suite";
+    const testSlug = (testInfo?.title ?? "unknown-test")
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-|-$/g, "");
@@ -48,13 +50,15 @@ export const screenshotFixture = base.extend<{
           path: path.join(dir, filename),
         });
 
-        await testInfo.attach(step, {
-          body: buffer,
-          contentType: "image/png",
-        });
+        if (testInfo?.attach) {
+          await testInfo.attach(step, {
+            body: buffer,
+            contentType: "image/png",
+          });
+        }
       },
     };
 
     await use(helper);
-  },
+  }, { auto: false }],
 });
