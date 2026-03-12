@@ -18,6 +18,8 @@ export interface ActionItem {
   priority: number;
   item: string;
   estimated_cost: string;
+  cost_min?: number;
+  cost_max?: number;
   impact: Priority;
   rooms_affected: string[];
   confidence?: number;

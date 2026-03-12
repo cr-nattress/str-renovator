@@ -153,6 +153,8 @@ export interface DbDesignJourneyItem {
   title: string;
   description: string | null;
   estimated_cost: string | null;
+  estimated_cost_min: number | null;
+  estimated_cost_max: number | null;
   actual_cost: number | null;
   impact: Priority;
   rooms_affected: string[];

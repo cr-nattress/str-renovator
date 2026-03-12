@@ -16,6 +16,8 @@ export const ActionItemSchema = z.object({
   priority: z.number(),
   item: z.string(),
   estimated_cost: z.string(),
+  cost_min: z.number().optional(),
+  cost_max: z.number().optional(),
   impact: z.enum(["high", "medium", "low"]),
   rooms_affected: z.array(z.string()),
   confidence: z.number().min(0).max(1).optional(),
