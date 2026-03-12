@@ -39,12 +39,13 @@ export function computeAnalysisActions(analysis: DbAnalysis): AvailableAction[] 
     });
   }
 
-  if (analysis.status === "failed") {
+  // Retry available for both partially_completed and failed
+  if (analysis.status === "partially_completed" || analysis.status === "failed") {
     actions.push({
-      label: "Retry Analysis",
+      label: "Retry Failed Batches",
       command: "retry-analysis",
-      params: { analysisId: analysis.id, propertyId: analysis.property_id },
-      variant: "primary",
+      params: { analysisId: analysis.id },
+      variant: analysis.status === "failed" ? "primary" : "secondary",
       icon: "RotateCcw",
     });
   }

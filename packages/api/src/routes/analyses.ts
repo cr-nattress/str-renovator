@@ -10,6 +10,7 @@ import {
   submitAnalysis,
   editAnalysisFields,
   archiveAnalysis,
+  retryAnalysisBatches,
 } from "../commands/index.js";
 import { computeAnalysisActions } from "../actions/index.js";
 
@@ -208,6 +209,19 @@ router.patch("/analyses/:id/archive", async (req, res, next) => {
       { userId: req.dbUser!.id, user: req.dbUser! },
     );
     res.status(204).end();
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /analyses/:id/retry - Retry failed batches
+router.post("/analyses/:id/retry", async (req, res, next) => {
+  try {
+    const result = await retryAnalysisBatches(
+      { analysisId: req.params.id },
+      { userId: req.dbUser!.id, user: req.dbUser! },
+    );
+    res.status(202).json(result);
   } catch (err) {
     next(err);
   }
