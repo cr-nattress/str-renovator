@@ -6,6 +6,7 @@ import {
   scrapeDlqQueue,
   actionImageDlqQueue,
   locationResearchDlqQueue,
+  fullRenovationDlqQueue,
 } from "../config/queue.js";
 import { logger } from "../config/logger.js";
 import { processAnalysisJob } from "./analyze.job.js";
@@ -13,6 +14,7 @@ import { processRenovationJob } from "./renovate.job.js";
 import { processScrapeJob } from "./scrape.job.js";
 import { processActionImageJob } from "./action-image.job.js";
 import { processLocationResearchJob } from "./location-research.job.js";
+import { processFullRenovationJob } from "./full-renovation.job.js";
 import { CONCURRENCY } from "@str-renovator/shared";
 import type { RenovationFailedEvent } from "@str-renovator/shared";
 import { publishEvents } from "../events/event-bus.js";
@@ -24,6 +26,7 @@ const dlqMap: Record<string, Queue> = {
   scrape: scrapeDlqQueue,
   "action-image": actionImageDlqQueue,
   "location-research": locationResearchDlqQueue,
+  "full-renovation": fullRenovationDlqQueue,
 };
 
 export function startWorkers(): void {
@@ -52,7 +55,12 @@ export function startWorkers(): void {
     concurrency: 2,
   });
 
-  for (const worker of [analysisWorker, renovationWorker, scrapeWorker, actionImageWorker, locationResearchWorker]) {
+  const fullRenovationWorker = new Worker("full-renovation", processFullRenovationJob, {
+    connection: queueConnection,
+    concurrency: CONCURRENCY.imageGeneration,
+  });
+
+  for (const worker of [analysisWorker, renovationWorker, scrapeWorker, actionImageWorker, locationResearchWorker, fullRenovationWorker]) {
     worker.on("failed", async (job, err) => {
       if (!job) return;
       logger.error({ jobId: job.id, queue: worker.name, err: err.message }, "job failed");

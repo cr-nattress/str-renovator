@@ -50,3 +50,18 @@ export async function updateReport(
     .eq("id", id);
   if (error) throw error;
 }
+
+export async function updateFullRenovation(
+  id: string,
+  storagePath: string | null,
+  status: DbAnalysisPhoto["full_renovation_status"],
+): Promise<void> {
+  const { error } = await supabase
+    .from("analysis_photos")
+    .update({
+      full_renovation_storage_path: storagePath,
+      full_renovation_status: status,
+    })
+    .eq("id", id);
+  if (error) throw error;
+}

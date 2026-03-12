@@ -93,6 +93,21 @@ export async function enqueueScrape(
   );
 }
 
+export async function enqueueFullRenovation(
+  analysisPhotoId: string,
+  userId: string,
+  propertyId: string,
+  quality: ImageQuality,
+  size: ImageSize,
+): Promise<void> {
+  await bullMqConnector.enqueue(
+    "full-renovation",
+    "full-renovation",
+    { analysisPhotoId, userId, propertyId, quality, size },
+    DEFAULT_RETRY
+  );
+}
+
 export async function enqueueLocationResearch(
   propertyId: string,
   userId: string

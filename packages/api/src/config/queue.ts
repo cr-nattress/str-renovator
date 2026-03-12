@@ -21,6 +21,7 @@ export const renovationQueue = new Queue("renovation", { connection: queueConnec
 export const scrapeQueue = new Queue("scrape", { connection: queueConnection });
 export const actionImageQueue = new Queue("action-image", { connection: queueConnection });
 export const locationResearchQueue = new Queue("location-research", { connection: queueConnection });
+export const fullRenovationQueue = new Queue("full-renovation", { connection: queueConnection });
 
 // Dead-letter queues for failed jobs that have exhausted all retries
 export const analysisDlqQueue = new Queue("analysis-dlq", { connection: queueConnection });
@@ -28,3 +29,4 @@ export const renovationDlqQueue = new Queue("renovation-dlq", { connection: queu
 export const scrapeDlqQueue = new Queue("scrape-dlq", { connection: queueConnection });
 export const actionImageDlqQueue = new Queue("action-image-dlq", { connection: queueConnection });
 export const locationResearchDlqQueue = new Queue("location-research-dlq", { connection: queueConnection });
+export const fullRenovationDlqQueue = new Queue("full-renovation-dlq", { connection: queueConnection });

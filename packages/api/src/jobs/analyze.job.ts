@@ -7,7 +7,8 @@
  * focused step functions. Each step is independently testable.
  *
  * Pipeline: fetch context → process batches → aggregate → create photos
- *   → create journey items → enqueue renovations → generate reports → finalize
+ *   → create journey items → enqueue renovations → enqueue full renovations
+ *   → generate reports → finalize
  */
 
 import type { Job } from "bullmq";
@@ -22,6 +23,7 @@ import { createAnalysisPhotos } from "./steps/create-analysis-photos.js";
 import { createJourneyItems } from "./steps/create-journey-items.js";
 import { enqueueRenovations } from "./steps/enqueue-renovations.js";
 import { generateReports } from "./steps/generate-reports.js";
+import { generateFullRenovations } from "./steps/generate-full-renovations.js";
 import { finalizeAnalysis } from "./steps/finalize-analysis.js";
 
 interface AnalysisJobData {
@@ -42,39 +44,42 @@ export async function processAnalysisJob(
   log.info({ jobId: job.id, quality, size }, "analysis job started");
 
   try {
-    log.info("step 1/7: fetching analysis context");
+    log.info("step 1/8: fetching analysis context");
     const { typedPhotos, context } = await fetchAnalysisContext(analysisId, propertyId);
     log.info({ photoCount: typedPhotos.length, hasContext: !!context }, "context fetched");
 
-    log.info("step 2/7: processing batches");
+    log.info("step 2/8: processing batches");
     const { completedCount, failedCount } = await processBatches(analysisId, typedPhotos, context, log, retry);
     log.info({ completedCount, failedCount }, "batch processing complete");
 
-    log.info("step 3/7: aggregating results");
+    log.info("step 3/8: aggregating results");
     const { analysis } = await aggregateAndSaveResults(analysisId);
     log.info(
       { photoResults: analysis.photos.length, actionPlanItems: analysis.action_plan.length },
       "aggregation complete"
     );
 
-    log.info("step 4/7: creating analysis photos");
+    log.info("step 4/8: creating analysis photos");
     const analysisPhotoIds = await createAnalysisPhotos(analysisId, analysis, typedPhotos);
     log.info(
       { created: analysisPhotoIds.length, aiResults: analysis.photos.length, availablePhotos: typedPhotos.length },
       "analysis photos created"
     );
 
-    log.info("step 5/7: creating journey items");
+    log.info("step 5/8: creating journey items");
     await createJourneyItems({
       analysisId, propertyId, userId, analysis, quality, size, log,
     });
     log.info("journey items created");
 
-    log.info("step 6/7: enqueueing renovations");
+    log.info("step 6/8: enqueueing renovations");
     await enqueueRenovations(analysisId, userId, analysisPhotoIds, quality, size);
     log.info({ renovationCount: analysisPhotoIds.length }, "renovations enqueued");
 
-    log.info("step 7/7: generating reports");
+    log.info("step 7/8: enqueueing full-renovation composite images");
+    await generateFullRenovations(analysisId, userId, propertyId, analysisPhotoIds, quality, size, log);
+
+    log.info("step 8/8: generating reports");
     await generateReports(analysisPhotoIds, log);
     log.info("reports generated");
 
