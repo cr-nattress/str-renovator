@@ -94,6 +94,8 @@ export async function createJourneyItems(input: CreateJourneyItemsInput): Promis
         priority: action.priority,
         title: action.item,
         estimated_cost: action.estimated_cost,
+        estimated_cost_min: action.cost_min ?? null,
+        estimated_cost_max: action.cost_max ?? null,
         impact: action.impact,
         rooms_affected: action.rooms_affected,
         source_photo_id: sourcePhotoId,

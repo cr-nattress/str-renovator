@@ -65,6 +65,8 @@ export async function upsertByTitle(
         analysis_id: data.analysis_id,
         priority: data.priority,
         estimated_cost: data.estimated_cost,
+        estimated_cost_min: data.estimated_cost_min,
+        estimated_cost_max: data.estimated_cost_max,
         impact: data.impact,
         rooms_affected: data.rooms_affected,
         source_photo_id: data.source_photo_id,
