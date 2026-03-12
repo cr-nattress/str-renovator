@@ -104,6 +104,8 @@ export interface DbAnalysisPhoto {
   renovations: string;
   priority: Priority;
   report: string | null;
+  full_renovation_storage_path: string | null;
+  full_renovation_status: "pending" | "processing" | "completed" | "failed";
   created_at: string;
 }
 
