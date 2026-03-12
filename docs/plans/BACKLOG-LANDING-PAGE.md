@@ -76,7 +76,7 @@
 
 **Acceptance:** User pastes URL → clicks CTA → signs in → lands on dashboard → property auto-created from URL. Clean flow.
 
-**Decision needed:** Should unauthenticated users see analysis results before signing in, or require sign-in first? Current plan assumes sign-in first.
+**Decision:** Sign-in required before any analysis results are shown.
 
 ---
 
@@ -170,9 +170,9 @@
 - **Option B (API):** Create a public `/api/v1/stats` endpoint (no auth required) returning aggregate platform metrics. Landing page fetches on mount. Cache aggressively (1h TTL).
 - Stats to expose: total properties analyzed, average nightly rate improvement, average ROI multiplier
 
-**Decision needed:** Static values for MVP, or API-backed from the start?
+**Decision:** Static values for MVP.
 
-**Acceptance:** Stats reflect real platform data (or reasonable estimates for launch).
+**Acceptance:** Stats show reasonable estimates for launch. Update manually as platform grows.
 
 ---
 
