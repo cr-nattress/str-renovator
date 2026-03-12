@@ -58,9 +58,11 @@ export function useJourneyItems(propertyId: string) {
 }
 
 export interface JourneySummary {
-  totalEstimated: number;
-  totalActual: number;
-  itemsByStatus: Record<string, number>;
+  total_estimated: number;
+  total_estimated_min: number;
+  total_estimated_max: number;
+  total_actual: number;
+  by_status: Record<string, number>;
 }
 
 export function useJourneySummary(propertyId: string) {

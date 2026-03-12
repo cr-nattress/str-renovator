@@ -46,8 +46,9 @@ export function DesignJourney() {
       {summary && (
         <div className="mb-6">
           <BudgetTracker
-            totalEstimated={summary.totalEstimated}
-            totalActual={summary.totalActual}
+            totalEstimatedMin={summary.total_estimated_min}
+            totalEstimatedMax={summary.total_estimated_max}
+            totalActual={summary.total_actual}
           />
         </div>
       )}

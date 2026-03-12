@@ -15,6 +15,20 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { PRIORITY_BADGE_VARIANT } from "../properties/shared-renderers";
 
+const fmt = (val: number) =>
+  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(val);
+
+function formatEstimatedCost(
+  min: number | null,
+  max: number | null,
+  fallback: string | null,
+): string {
+  if (min != null && max != null) {
+    return min === max ? fmt(min) : `${fmt(min)} – ${fmt(max)}`;
+  }
+  return fallback || "N/A";
+}
+
 const STATUS_OPTIONS: { value: JourneyStatus; label: string }[] = [
   { value: "not_started", label: "Not Started" },
   { value: "in_progress", label: "In Progress" },
@@ -129,7 +143,7 @@ export function ActionItemCard({ item, onUpdate, isSaving }: Props) {
               <div className="space-y-1">
                 <Label className="text-xs">Est. Cost</Label>
                 <p className="text-sm text-muted-foreground py-1.5">
-                  {item.estimated_cost || "N/A"}
+                  {formatEstimatedCost(item.estimated_cost_min, item.estimated_cost_max, item.estimated_cost)}
                 </p>
               </div>
 
