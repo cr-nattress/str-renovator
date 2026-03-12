@@ -62,10 +62,16 @@ router.get("/analysis-photos/:id/renovations", async (req, res, next) => {
       hasLatestFeedback,
     });
 
+    // Generate signed URL for full-renovation composite image if available
+    const fullRenovationUrl = await storageService.getSignedUrlOrNull(
+      analysisPhoto.full_renovation_storage_path,
+    );
+
     // Return AnalysisPhotoWithDetails shape
     const { photos: _photos, ...analysisPhotoFields } = analysisPhoto;
     res.json({
       ...analysisPhotoFields,
+      full_renovation_url: fullRenovationUrl,
       photo: photoWithUrl,
       renovation_images: renovationImages,
       availableActions,

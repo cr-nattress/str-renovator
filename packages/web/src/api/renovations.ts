@@ -17,6 +17,7 @@ export interface RenovationWithDetails extends DbRenovation {
 
 export interface AnalysisPhotoWithDetails extends DbAnalysisPhoto {
   photo: DbPhoto & { url?: string | null };
+  full_renovation_url?: string | null;
   renovation_images: RenovationWithDetails[];
   availableActions?: AvailableAction[];
 }
@@ -33,6 +34,15 @@ export function useRenovations(analysisPhotoId: string) {
       );
     },
     enabled: !!analysisPhotoId,
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      if (!data) return false;
+      const hasProcessing =
+        data.full_renovation_status === "processing" ||
+        data.renovation_images.some((r) => r.status === "processing" || r.status === "pending");
+      return hasProcessing ? 5000 : false;
+    },
+    refetchIntervalInBackground: false,
   });
 }
 

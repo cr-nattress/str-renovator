@@ -78,11 +78,35 @@ export function RenovationView() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
+          {/* Primary: full renovation composite image (all changes applied) */}
+          {data.full_renovation_url && (
+            <div>
+              <h3 className="text-sm font-semibold text-gray-900 mb-2">
+                Full Renovation Preview
+              </h3>
+              <PhotoCompare
+                beforeSrc={data.photo.url ?? ""}
+                afterSrc={data.full_renovation_url}
+              />
+            </div>
+          )}
+          {data.full_renovation_status === "processing" && (
+            <div className="bg-muted animate-pulse rounded-lg p-8 text-center">
+              <p className="text-sm text-muted-foreground">Generating full renovation preview...</p>
+            </div>
+          )}
+
+          {/* Secondary: individual action item renovation image */}
           {latestRenovation?.url && (
-            <PhotoCompare
-              beforeSrc={data.photo.url ?? ""}
-              afterSrc={latestRenovation.url}
-            />
+            <div>
+              <h3 className="text-sm font-semibold text-gray-900 mb-2">
+                {data.full_renovation_url ? "Individual Change Preview" : "Renovation Preview"}
+              </h3>
+              <PhotoCompare
+                beforeSrc={data.photo.url ?? ""}
+                afterSrc={latestRenovation.url}
+              />
+            </div>
           )}
 
           <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
