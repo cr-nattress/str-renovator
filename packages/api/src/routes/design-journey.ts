@@ -133,20 +133,28 @@ router.get("/properties/:propertyId/journey/summary", async (req, res, next) => 
 
     const allItems = items ?? [];
 
-    // Parse estimated costs (e.g., "$100-200" -> take midpoint)
-    let totalEstimated = 0;
+    // Aggregate estimated costs: prefer numeric fields, fall back to string parsing
+    let totalEstimatedMin = 0;
+    let totalEstimatedMax = 0;
     for (const item of allItems) {
-      if (item.estimated_cost) {
+      if (item.estimated_cost_min != null || item.estimated_cost_max != null) {
+        totalEstimatedMin += item.estimated_cost_min ?? 0;
+        totalEstimatedMax += item.estimated_cost_max ?? 0;
+      } else if (item.estimated_cost) {
         const numbers = item.estimated_cost.match(/[\d,]+/g);
         if (numbers && numbers.length >= 2) {
           const low = parseInt(numbers[0].replace(/,/g, ""), 10);
           const high = parseInt(numbers[1].replace(/,/g, ""), 10);
-          totalEstimated += (low + high) / 2;
+          totalEstimatedMin += low;
+          totalEstimatedMax += high;
         } else if (numbers && numbers.length === 1) {
-          totalEstimated += parseInt(numbers[0].replace(/,/g, ""), 10);
+          const val = parseInt(numbers[0].replace(/,/g, ""), 10);
+          totalEstimatedMin += val;
+          totalEstimatedMax += val;
         }
       }
     }
+    const totalEstimated = (totalEstimatedMin + totalEstimatedMax) / 2;
 
     const totalActual = allItems.reduce(
       (sum: number, item: any) => sum + (item.actual_cost ?? 0),
@@ -161,6 +169,8 @@ router.get("/properties/:propertyId/journey/summary", async (req, res, next) => 
     res.json({
       total_items: allItems.length,
       total_estimated: totalEstimated,
+      total_estimated_min: totalEstimatedMin,
+      total_estimated_max: totalEstimatedMax,
       total_actual: totalActual,
       by_status: statusCounts,
     });
