@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { ImageIcon, Loader2, AlertTriangle } from "lucide-react";
 import type { ActionItem } from "@str-renovator/shared";
 import type { JourneyItemWithImage } from "../../api/journey";
+import { ConfidenceIndicator } from "@/components/ai/ConfidenceIndicator";
 import { ReasoningExpander } from "@/components/ai/ReasoningExpander";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -91,6 +92,9 @@ export function ActionPlanTable({ actionPlan, journeyItems }: Props) {
                         </Link>
                       ) : (
                         item.item
+                      )}
+                      {item.confidence != null && (
+                        <ConfidenceIndicator confidence={item.confidence} className="mt-1" />
                       )}
                       {item.reasoning && (
                         <ReasoningExpander reasoning={item.reasoning} />

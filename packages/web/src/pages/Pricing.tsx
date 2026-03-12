@@ -7,22 +7,26 @@ const TIERS: { key: Tier; name: string; price: string }[] = [
   { key: "business", name: "Business", price: "$99/mo" },
 ];
 
+function formatLimit(value: number): string {
+  return value === Infinity ? "Unlimited" : value.toString();
+}
+
 const ROWS: { label: string; getValue: (tier: Tier) => string }[] = [
   {
     label: "Properties",
-    getValue: (t) => TIER_LIMITS[t].properties.toString(),
+    getValue: (t) => formatLimit(TIER_LIMITS[t].properties),
   },
   {
     label: "Photos per Property",
-    getValue: (t) => TIER_LIMITS[t].photosPerProperty.toString(),
+    getValue: (t) => formatLimit(TIER_LIMITS[t].photosPerProperty),
   },
   {
     label: "Analyses per Month",
-    getValue: (t) => TIER_LIMITS[t].analysesPerMonth.toString(),
+    getValue: (t) => formatLimit(TIER_LIMITS[t].analysesPerMonth),
   },
   {
     label: "Re-runs per Photo",
-    getValue: (t) => TIER_LIMITS[t].rerunsPerPhoto.toString(),
+    getValue: (t) => formatLimit(TIER_LIMITS[t].rerunsPerPhoto),
   },
   {
     label: "Image Quality",

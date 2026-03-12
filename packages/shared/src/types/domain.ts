@@ -20,6 +20,7 @@ export interface ActionItem {
   estimated_cost: string;
   impact: Priority;
   rooms_affected: string[];
+  confidence?: number;
   reasoning?: string;
 }
 
