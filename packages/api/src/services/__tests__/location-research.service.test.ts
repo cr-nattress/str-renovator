@@ -119,7 +119,7 @@ describe("researchLocation", () => {
 
     await expect(
       researchLocation({ city: "Test" })
-    ).rejects.toThrow("No response from location research");
+    ).rejects.toThrow("No content in chat completion response");
   });
 
   it("throws when model returns invalid JSON", async () => {

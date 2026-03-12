@@ -97,6 +97,11 @@ function createSupabaseMock() {
         callLog.push({ table, methods: [...methods] });
         return Promise.resolve(dequeue());
       },
+      maybeSingle() {
+        methods.push("maybeSingle");
+        callLog.push({ table, methods: [...methods] });
+        return Promise.resolve(dequeue());
+      },
       order(..._args: any[]) {
         methods.push("order");
         return chain;

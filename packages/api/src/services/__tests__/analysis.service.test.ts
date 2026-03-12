@@ -137,7 +137,7 @@ describe("analyzeProperty", () => {
 
     await expect(
       analyzeProperty({ buffers: [Buffer.from("img")], filenames: ["test.jpg"] })
-    ).rejects.toThrow("Empty response from analysis model");
+    ).rejects.toThrow("No content in chat completion response");
   });
 
   it("throws on invalid JSON", async () => {

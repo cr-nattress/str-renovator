@@ -72,7 +72,7 @@ describe("generateTextReport", () => {
 
     await expect(
       generateTextReport("data")
-    ).rejects.toThrow("Empty response from report model");
+    ).rejects.toThrow("No content in chat completion response");
   });
 
   it("throws when API call fails", async () => {

@@ -108,7 +108,7 @@ describe("processSingleBatch", () => {
     ] as any[];
 
     const analysisResult = {
-      data: { property_assessment: "Good" },
+      data: { property_assessment: "Good", photos: [{ filename: "photo.jpg" }], action_plan: [] },
       metadata: { model: "gpt-4o", tokensUsed: 500, promptVersion: "v1" },
     };
 
@@ -147,10 +147,10 @@ describe("processSingleBatch", () => {
 
     await expect(
       processSingleBatch(batch, photos, undefined, 1)
-    ).rejects.toThrow("Storage error");
+    ).rejects.toThrow("All photo downloads failed for batch");
 
     expect(mockUpdateStatus).toHaveBeenCalledWith("batch-2", "failed", {
-      error: "Storage error",
+      error: "All photo downloads failed for batch",
     });
   });
 });

@@ -74,7 +74,7 @@ describe("extractListingData", () => {
 
     await expect(
       extractListingData("content", "https://example.com")
-    ).rejects.toThrow("No response from listing extraction");
+    ).rejects.toThrow("No content in chat completion response");
   });
 
   it("throws when model returns invalid JSON", async () => {

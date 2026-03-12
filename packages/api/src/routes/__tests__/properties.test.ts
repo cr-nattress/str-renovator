@@ -14,6 +14,9 @@ const mockListByUser = vi.fn();
 const mockFindByIdAndUser = vi.fn();
 const mockUpdate = vi.fn();
 const mockRemove = vi.fn();
+const mockPhotoCountByProperty = vi.fn();
+const mockPhotoListByProperty = vi.fn();
+const mockFindLatestByProperty = vi.fn();
 
 vi.mock("../../config/env.js", () => ({
   env: {
@@ -68,6 +71,7 @@ vi.mock("../../services/storage.service.js", () => ({
   downloadPhoto: vi.fn(),
   deletePhoto: vi.fn(),
   getSignedUrl: vi.fn(),
+  getSignedUrlOrNull: vi.fn().mockResolvedValue(null),
 }));
 
 vi.mock("../../config/openai.js", () => ({
@@ -89,8 +93,28 @@ vi.mock("../../repositories/property.repository.js", () => ({
   create: (...args: unknown[]) => mockCreate(...args),
   listByUser: (...args: unknown[]) => mockListByUser(...args),
   findByIdAndUser: (...args: unknown[]) => mockFindByIdAndUser(...args),
+  findByIdWithColumns: (...args: unknown[]) => mockFindByIdAndUser(...args),
   update: (...args: unknown[]) => mockUpdate(...args),
   remove: (...args: unknown[]) => mockRemove(...args),
+}));
+
+vi.mock("../../repositories/photo.repository.js", () => ({
+  countByProperty: (...args: unknown[]) => mockPhotoCountByProperty(...args),
+  listByProperty: (...args: unknown[]) => mockPhotoListByProperty(...args),
+}));
+
+vi.mock("../../repositories/analysis.repository.js", () => ({
+  findLatestByProperty: (...args: unknown[]) => mockFindLatestByProperty(...args),
+}));
+
+vi.mock("../../repositories/edit-history.repository.js", () => ({
+  create: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock("../../events/event-bus.js", () => ({
+  publishEvent: vi.fn().mockResolvedValue(undefined),
+  publishEvents: vi.fn().mockResolvedValue(undefined),
+  onEvent: vi.fn(),
 }));
 
 import request from "supertest";
@@ -120,7 +144,7 @@ describe("Properties Routes", () => {
         .send({ name: "Mountain Cabin" });
 
       expect(res.status).toBe(201);
-      expect(res.body.name).toBe("Mountain Cabin");
+      expect(res.body.data.name).toBe("Mountain Cabin");
       expect(mockCreate).toHaveBeenCalledWith(
         expect.objectContaining({ name: "Mountain Cabin", user_id: TEST_USER_ID })
       );
@@ -152,6 +176,9 @@ describe("Properties Routes", () => {
         { id: "prop-2", name: "Beach House", user_id: TEST_USER_ID },
       ];
       mockListByUser.mockResolvedValue(properties);
+      mockPhotoCountByProperty.mockResolvedValue(0);
+      mockPhotoListByProperty.mockResolvedValue([]);
+      mockFindLatestByProperty.mockResolvedValue(null);
 
       const res = await request(app).get("/api/v1/properties");
 
@@ -165,6 +192,7 @@ describe("Properties Routes", () => {
     it("returns property by id", async () => {
       const property = { id: "prop-1", name: "Cabin", user_id: TEST_USER_ID };
       mockFindByIdAndUser.mockResolvedValue(property);
+      mockPhotoCountByProperty.mockResolvedValue(0);
 
       const res = await request(app).get("/api/v1/properties/prop-1");
 
@@ -192,7 +220,7 @@ describe("Properties Routes", () => {
         .send({ name: "Updated Cabin" });
 
       expect(res.status).toBe(200);
-      expect(res.body.name).toBe("Updated Cabin");
+      expect(res.body.data.name).toBe("Updated Cabin");
     });
 
     it("returns 404 when property not found", async () => {

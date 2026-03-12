@@ -79,7 +79,7 @@ describe("synthesizePropertyProfile", () => {
 
     await expect(
       synthesizePropertyProfile({ scrapedData: {}, locationProfile: {} })
-    ).rejects.toThrow("No response from property synthesis");
+    ).rejects.toThrow("No content in chat completion response");
   });
 
   it("throws when API call fails", async () => {
