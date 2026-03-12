@@ -45,6 +45,31 @@ export async function listCompleted(
   return data as DbAnalysisBatch[];
 }
 
+export async function listByAnalysis(
+  analysisId: string
+): Promise<DbAnalysisBatch[]> {
+  const { data, error } = await supabase
+    .from("analysis_batches")
+    .select("*")
+    .eq("analysis_id", analysisId)
+    .order("batch_index");
+  if (error) throw error;
+  return (data ?? []) as DbAnalysisBatch[];
+}
+
+export async function resetFailed(
+  analysisId: string
+): Promise<number> {
+  const { data, error } = await supabase
+    .from("analysis_batches")
+    .update({ status: "pending", error: null })
+    .eq("analysis_id", analysisId)
+    .eq("status", "failed")
+    .select("id");
+  if (error) throw error;
+  return data?.length ?? 0;
+}
+
 export async function listSuccessful(
   analysisId: string
 ): Promise<DbAnalysisBatch[]> {
