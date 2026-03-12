@@ -12,3 +12,6 @@ logs/analyzed/
 
 # Saved auth state
 packages/e2e/crawl/auth/.auth-state.json
+
+# Git worktrees
+.worktrees/
