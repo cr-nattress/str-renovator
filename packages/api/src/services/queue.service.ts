@@ -24,12 +24,13 @@ export async function enqueueAnalysis(
   propertyId: string,
   userId: string,
   quality: ImageQuality,
-  size: ImageSize
+  size: ImageSize,
+  retry?: boolean
 ): Promise<void> {
   await bullMqConnector.enqueue(
     "analysis",
     "analyze",
-    { analysisId, propertyId, userId, quality, size },
+    { analysisId, propertyId, userId, quality, size, retry: retry ?? false },
     DEFAULT_RETRY
   );
 }

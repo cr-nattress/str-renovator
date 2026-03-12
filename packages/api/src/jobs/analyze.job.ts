@@ -30,12 +30,13 @@ interface AnalysisJobData {
   userId: string;
   quality: ImageQuality;
   size: ImageSize;
+  retry: boolean;
 }
 
 export async function processAnalysisJob(
   job: Job<AnalysisJobData>
 ): Promise<void> {
-  const { analysisId, propertyId, userId, quality, size } = job.data;
+  const { analysisId, propertyId, userId, quality, size, retry } = job.data;
   const log = createChildLogger({ jobType: "analysis", analysisId, propertyId });
 
   log.info({ jobId: job.id, quality, size }, "analysis job started");
@@ -46,7 +47,7 @@ export async function processAnalysisJob(
     log.info({ photoCount: typedPhotos.length, hasContext: !!context }, "context fetched");
 
     log.info("step 2/7: processing batches");
-    const { completedCount, failedCount } = await processBatches(analysisId, typedPhotos, context, log);
+    const { completedCount, failedCount } = await processBatches(analysisId, typedPhotos, context, log, retry);
     log.info({ completedCount, failedCount }, "batch processing complete");
 
     log.info("step 3/7: aggregating results");
