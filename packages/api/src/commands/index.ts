@@ -24,4 +24,5 @@ export { researchPropertyLocation, type ResearchPropertyLocationInput } from "./
 export { createJourneyItem, type CreateJourneyItemInput } from "./create-journey-item.js";
 export { updateJourneyItem, type UpdateJourneyItemInput } from "./update-journey-item.js";
 export { undoEdit, type UndoEditInput } from "./undo-edit.js";
+export { retryAnalysisBatches, type RetryAnalysisBatchesInput } from "./retry-analysis-batches.js";
 export type { CommandContext, CommandHandler, CommandResult } from "./execute.js";
