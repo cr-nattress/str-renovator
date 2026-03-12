@@ -1,5 +1,9 @@
-import { useState } from "react";
-import { useProperties, useCreateProperty } from "../api/properties";
+import { useState, useEffect } from "react";
+import {
+  useProperties,
+  useCreateProperty,
+  useCreatePropertyFromUrl,
+} from "../api/properties";
 import { PropertyCard } from "../components/properties/PropertyCard";
 import { PropertyForm } from "../components/properties/PropertyForm";
 import { PropertyIntentBox } from "../components/properties/PropertyIntentBox";
@@ -14,12 +18,24 @@ import {
 } from "@/components/ui/dialog";
 import type { CreatePropertyDto } from "@str-renovator/shared";
 import { Plus, Home, Sparkles } from "lucide-react";
+import { PENDING_URL_KEY } from "./Landing";
 
 export function Dashboard() {
   const { data: properties, isLoading } = useProperties();
   const createProperty = useCreateProperty();
+  const createFromUrl = useCreatePropertyFromUrl();
   const [showModal, setShowModal] = useState(false);
   const [showDetailedForm, setShowDetailedForm] = useState(false);
+
+  // LP-004: Consume pending listing URL from landing page intent flow
+  useEffect(() => {
+    const pendingUrl = sessionStorage.getItem(PENDING_URL_KEY);
+    if (pendingUrl) {
+      sessionStorage.removeItem(PENDING_URL_KEY);
+      createFromUrl.mutate({ listingUrl: pendingUrl });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleCreate = (data: CreatePropertyDto) => {
     createProperty.mutate(data, {

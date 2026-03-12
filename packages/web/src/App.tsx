@@ -1,14 +1,13 @@
-import { SignedIn, SignedOut, SignIn } from "@clerk/clerk-react";
+import { SignedIn, SignedOut } from "@clerk/clerk-react";
 import { AppShell } from "./components/layout/AppShell";
 import { AppRoutes } from "./router";
+import { Landing } from "./pages/Landing";
 
 export function App() {
   return (
     <>
       <SignedOut>
-        <div className="min-h-screen flex items-center justify-center bg-background">
-          <SignIn />
-        </div>
+        <Landing />
       </SignedOut>
       <SignedIn>
         <AppShell>
