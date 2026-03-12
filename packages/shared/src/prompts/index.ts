@@ -1,6 +1,6 @@
 import type { PropertyAnalysis, PhotoMetadataBlock } from "../types/index.js";
 
-export const ANALYSIS_PROMPT_VERSION = "v5";
+export const ANALYSIS_PROMPT_VERSION = "v6";
 export const AGGREGATION_PROMPT_VERSION = "v1";
 export const REPORT_PROMPT_VERSION = "v2";
 export const LISTING_EXTRACTION_PROMPT_VERSION = "v2";
@@ -138,6 +138,11 @@ export const ANALYSIS_SYSTEM_PROMPT = [
   "",
   "═══ ASSESSMENT INSTRUCTIONS ═══",
   "",
+  "COST ESTIMATES:",
+  "- For each action plan item, provide both a human-readable 'estimated_cost' string (e.g. '$100-200') AND numeric 'cost_min' and 'cost_max' fields in dollars.",
+  "- cost_min and cost_max are integers representing the low and high end of the cost range.",
+  "- For a single-point estimate like '$500', set cost_min=500, cost_max=500.",
+  "",
   "For each photo, provide specific, actionable renovation recommendations with estimated costs.",
   "Consider how changes in one room relate to the overall property aesthetic.",
   "Rank recommendations by ROI impact — prioritize changes that improve listing photos and booking conversion.",
@@ -194,6 +199,8 @@ export const ANALYSIS_SYSTEM_PROMPT = [
           priority: 1,
           item: "Description of the action item",
           estimated_cost: "$100-200",
+          cost_min: 100,
+          cost_max: 200,
           impact: "high",
           rooms_affected: ["Living Room"],
           reasoning: "Why this action item was recommended and its expected ROI...",
