@@ -77,6 +77,24 @@ export function useArchiveAnalysis(propertyId: string) {
   });
 }
 
+export function useRetryAnalysis(analysisId: string) {
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const token = await getToken();
+      return apiFetch<{ data: { id: string; status: string } }>(
+        `/api/v1/analyses/${analysisId}/retry`,
+        token!,
+        { method: "POST" },
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["analysis", analysisId] });
+    },
+  });
+}
+
 export function useCreateAnalysis(propertyId: string) {
   const { getToken } = useAuth();
   const queryClient = useQueryClient();

@@ -1,7 +1,6 @@
 import { useCallback } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { useAnalysis, useUpdateAnalysis, useArchiveAnalysis } from "../api/analyses";
-import { useCreateAnalysis } from "../api/analyses";
+import { useAnalysis, useUpdateAnalysis, useArchiveAnalysis, useRetryAnalysis } from "../api/analyses";
 import { useRealtimeUpdates } from "../hooks/useRealtimeUpdates";
 import { AnalysisProgress } from "../components/analysis/AnalysisProgress";
 import { PropertyAssessment } from "../components/analysis/PropertyAssessment";
@@ -20,7 +19,7 @@ export function AnalysisView() {
   const realtime = useRealtimeUpdates(id!);
   const { data: journeyItems } = useJourneyItems(analysis?.property_id ?? "");
   const archiveAnalysis = useArchiveAnalysis(analysis?.property_id ?? "");
-  const createAnalysis = useCreateAnalysis(analysis?.property_id ?? "");
+  const retryAnalysis = useRetryAnalysis(id!);
 
   const handleAction = useCallback(
     (action: AvailableAction) => {
@@ -35,13 +34,11 @@ export function AnalysisView() {
           });
           break;
         case "retry-analysis":
-          createAnalysis.mutate(undefined, {
-            onSuccess: (newAnalysis) => navigate(`/analyses/${newAnalysis.id}`),
-          });
+          retryAnalysis.mutate();
           break;
       }
     },
-    [analysis, archiveAnalysis, createAnalysis, navigate],
+    [analysis, archiveAnalysis, retryAnalysis, navigate],
   );
 
   if (isLoading || !analysis) {
