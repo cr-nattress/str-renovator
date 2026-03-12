@@ -147,6 +147,8 @@ export function makeJourneyItem(
     title: "Replace kitchen countertops",
     description: "Upgrade to quartz countertops",
     estimated_cost: "$2,000-4,000",
+    estimated_cost_min: 2000,
+    estimated_cost_max: 4000,
     actual_cost: null,
     impact: "high",
     rooms_affected: ["kitchen"],

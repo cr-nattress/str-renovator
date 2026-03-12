@@ -9,6 +9,7 @@ export const REVIEW_ANALYSIS_PROMPT_VERSION = "v2";
 export const PROPERTY_SYNTHESIS_PROMPT_VERSION = "v3";
 export const IMAGE_EDIT_PROMPT_VERSION = "v1";
 export const ACTION_IMAGE_PROMPT_VERSION = "v1";
+export const FULL_RENOVATION_PROMPT_VERSION = "v1";
 
 /** Wraps user renovation instructions in a system prompt for DALL-E image editing */
 export function buildImageEditPrompt(userPrompt: string): string {
@@ -523,3 +524,39 @@ export const AGGREGATION_SYSTEM_PROMPT = [
   "",
   "Return JSON matching the exact PropertyAnalysis structure (no markdown fences).",
 ].join("\n");
+
+/** Builds a DALL-E prompt for a composite full-renovation image showing all action items applied to a room */
+export function buildFullRenovationPrompt(
+  actionDescriptions: string[],
+  room: string,
+  styleDirection: string,
+  constraints?: string[],
+): string {
+  const lines = [
+    "You are editing a real estate listing photo for a short-term rental (Airbnb/VRBO).",
+    "Apply ALL of the following renovations to this photo simultaneously.",
+    "The result should show the room with every change applied together — a complete transformation.",
+    "Keep the room layout, perspective, and lighting realistic and consistent.",
+    "The result should look like a professional real estate photo — not AI-generated.",
+  ];
+
+  if (constraints?.length) {
+    lines.push(
+      "",
+      "CONSTRAINTS — The owner has specified that the following aspects must NOT change:",
+      ...constraints.map((c) => `- ${c}`),
+      "Preserve these exactly as they appear in the original photo.",
+    );
+  }
+
+  lines.push(
+    "",
+    `Room: ${room}`,
+    `Style direction: ${styleDirection}`,
+    "",
+    "Changes to apply (all at once):",
+    ...actionDescriptions.map((d, i) => `${i + 1}. ${d}`),
+  );
+
+  return lines.join("\n");
+}
